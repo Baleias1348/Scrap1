@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
       console.log('[API/ASK] Solicitando embedding a Gemini 2.5 Pro...');
       const embeddingModel = genAI.getGenerativeModel({ model: 'models/embedding-001' });
       const embeddingResp = await embeddingModel.embedContent({
-        content: question,
+        content: { parts: [{ text: question }] },
         taskType: 'retrieval_query',
       });
       questionEmbedding = embeddingResp.embedding.values;
