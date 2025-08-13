@@ -1,0 +1,29 @@
+# Ignorar resultados locales de scraping
+python_scraper/results/
+preventiflow_scraper/results/
+results/
+
+# Ignorar dependencias locales de Node.js
+node_modules/
+
+# Archivos temporales y del sistema
+.DS_Store
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Entornos y variables
+.env
+.env.*
+
+# Salidas de pruebas y cachés
+coverage/
+.cache/
+.next/
+dist/
+build/
+
+# Otros
+*.pyc
+__pycache__/
