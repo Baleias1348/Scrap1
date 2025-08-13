@@ -15,6 +15,8 @@ interface DocumentoEditableProps {
   onCompletar: (valores: Record<string, string>) => void;
 }
 
+import { useAuth } from "../context/AuthContext";
+
 export default function DocumentoEditable({ contenidoBase, campos, onCompletar }: DocumentoEditableProps) {
   const [valores, setValores] = useState<Record<string, string>>(
     Object.fromEntries(campos.map(c => [c.nombre, ""]))
@@ -26,6 +28,7 @@ export default function DocumentoEditable({ contenidoBase, campos, onCompletar }
   const [nombreDoc, setNombreDoc] = useState("");
   const [subiendo, setSubiendo] = useState(false);
   const [mensajeGuardado, setMensajeGuardado] = useState<string>("");
+  const { user, org } = useAuth();
 
   // Subir y guardar documento en el bucket y base de datos
   async function handleDescargarYGuardar(e: React.FormEvent) {
@@ -47,9 +50,9 @@ export default function DocumentoEditable({ contenidoBase, campos, onCompletar }
       // Subir a endpoint API
       const formData = new FormData();
       formData.append('file', new File([pdfBlob], `${nombreDoc}.pdf`, { type: 'application/pdf' }));
-      // TODO: obtener orgId y userId reales del contexto de sesión
-      formData.append('orgId', window.orgId || 'demo-org');
-      formData.append('userId', window.userId || 'demo-user');
+      // Usar orgId y userId reales del contexto de sesión
+      formData.append('orgId', org?.id || 'demo-org');
+      formData.append('userId', user?.id || 'demo-user');
       formData.append('nombre', nombreDoc);
       formData.append('extension', 'pdf');
       const resp = await fetch('/api/documentos_modelo/upload', {
