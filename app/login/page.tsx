@@ -1,4 +1,5 @@
 // Página de bienvenida con login semi-manual y lógica de token
+// Cambio menor para forzar commit y build
 'use client';
 
 import { useEffect, useState } from 'react';
