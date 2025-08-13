@@ -1,3 +1,4 @@
+// Cambio mínimo para forzar commit y build - 2025-08-13
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 

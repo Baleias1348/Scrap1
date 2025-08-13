@@ -8,32 +8,20 @@
   status = 200
 
 # Manejo de rutas para autenticación
-[[redirects]]
-  from = "/login"
-  to = "/auth/login"
-  status = 301
+# Netlify config para Next.js App Router SSR
+[build]
+  command = "npm run build"
+  publish = ".next"
 
-[[redirects]]
-  from = "/dashboard"
-  to = "/dashboard"
-  status = 200
-  force = true
-
-# Manejo de rutas de autenticación de terceros
-[[redirects]]
-  from = "/auth/*"
-  to = "/auth/:splat"
-  status = 200
-
-# Manejo de rutas de la API
-[[redirects]]
-  from = "/api/*"
-  to = "/api/:splat"
-  status = 200
-
-# Redirección para SPA (Single Page Application)
+# Redirección principal para SSR (Next.js)
 [[redirects]]
   from = "/*"
-  to = "/index.html"
+  to = "/.netlify/functions/next"
   status = 200
-  force = true
+
+# API routes
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/next"
+  status = 200
+

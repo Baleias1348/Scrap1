@@ -1,3 +1,4 @@
+// Forzar build Netlify: 2025-08-13
 import "./globals.css";
 
 export const metadata = {
