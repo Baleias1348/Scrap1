@@ -43,7 +43,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, TaskType } from '@google/generative-ai';
 
 // Inicializar cliente de Google Generative AI solo si la clave está disponible
 let genAI: GoogleGenerativeAI | null = null;
@@ -125,8 +125,8 @@ export async function POST(req: NextRequest) {
       console.log('[API/ASK] Solicitando embedding a Gemini 2.5 Pro...');
       const embeddingModel = genAI.getGenerativeModel({ model: 'models/embedding-001' });
       const embeddingResp = await embeddingModel.embedContent({
-        content: { parts: [{ text: question }] },
-        taskType: 'retrieval_query',
+        content: { role: 'user', parts: [{ text: question }] },
+        taskType: TaskType.RETRIEVAL_QUERY,
       });
       questionEmbedding = embeddingResp.embedding.values;
       console.log('[API/ASK] Embedding generado con Gemini:', questionEmbedding.length);
