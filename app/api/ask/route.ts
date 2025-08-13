@@ -109,30 +109,27 @@ export async function POST(req: NextRequest) {
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
     console.log('[API/ASK] Cliente Supabase creado');
 
-    // 2. Crear cliente Google Generative AI
-    const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
-    console.log('[API/ASK] Cliente Google Generative AI creado');
-
-    // 3. Generar embedding de la pregunta
-    const embedModel = genAI.getGenerativeModel({ model: 'embedding-001' });
-    console.log('[API/ASK] Modelo de embedding inicializado');
-    let embedResp;
-    try {
-      console.log('[API/ASK] Solicitando embedding a Google...');
-      embedResp = await embedModel.embedContent({
-        content: {
-          role: 'user',
-          parts: [{ text: question }]
-        },
-        taskType: TaskType.RETRIEVAL_QUERY,
-      });
-    } catch (error: any) {
-      return NextResponse.json({ error: 'No se pudo generar el embedding de la pregunta.', details: error?.message || error?.toString() }, { status: 500 });
+    // --- Embeddings: usar OpenAI si hay clave, si no error ---
+    let questionEmbedding;
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    if (OPENAI_API_KEY) {
+      const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
+      try {
+        console.log('[API/ASK] Solicitando embedding a OpenAI...');
+        const embeddingResponse = await openai.embeddings.create({
+          model: 'text-embedding-3-small',
+          input: question,
+        });
+        questionEmbedding = embeddingResponse.data[0].embedding;
+        console.log('[API/ASK] Embedding generado con OpenAI:', questionEmbedding.length);
+      } catch (error: any) {
+        return NextResponse.json({ error: 'No se pudo generar el embedding de la pregunta con OpenAI.', details: error?.message || error?.toString() }, { status: 500 });
+      }
+    } else {
+      return NextResponse.json({ error: 'No hay clave de OpenAI para generar embeddings.' }, { status: 500 });
     }
-    const questionEmbedding = embedResp.embedding?.values;
-    console.log('[API/ASK] Embedding generado:', questionEmbedding?.length);
     if (!questionEmbedding || questionEmbedding.length !== VECTOR_SIZE) {
-      return NextResponse.json({ error: 'No se pudo generar el embedding de la pregunta.', details: embedResp }, { status: 500 });
+      return NextResponse.json({ error: 'No se pudo generar el embedding de la pregunta.', details: questionEmbedding }, { status: 500 });
     }
 
     // 4. Buscar contexto relevante en Supabase (RPC)
