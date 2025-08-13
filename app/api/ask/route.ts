@@ -175,9 +175,10 @@ export async function POST(req: NextRequest) {
     let inputTokens = null;
     let outputTokens = null;
     let estimatedCost = null;
-    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-    console.log('[API/ASK] Selección de modelo. ¿OPENAI_API_KEY presente?', !!OPENAI_API_KEY);
-    if (OPENAI_API_KEY) {
+    
+    // Usar la variable OPENAI_API_KEY ya declarada arriba (línea ~110)
+    console.log('[API/ASK] Selección de modelo. ¿OPENAI_API_KEY presente?', !!process.env.OPENAI_API_KEY);
+    if (process.env.OPENAI_API_KEY) {
       // Usar OpenAI GPT-4o si hay API Key
       const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
       try {
