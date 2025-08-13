@@ -43,8 +43,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenerativeAI, TaskType } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
+
+// Inicializar cliente de Google Generative AI solo si la clave está disponible
+let genAI: GoogleGenerativeAI | null = null;
+if (process.env.GOOGLE_API_KEY) {
+  genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+}
 
 // --- CONFIGURACIÓN ---
 const SUPABASE_URL = process.env.SUPABASE_URL!;
@@ -208,20 +214,34 @@ export async function POST(req: NextRequest) {
       } catch (openaiError: any) {
         console.error('[API/ASK] Error en OpenAI:', openaiError);
         // Si falla OpenAI, usar Gemini como fallback
-        console.log('[API/ASK] Haciendo fallback a Gemini...');
+        if (genAI) {
+          try {
+            console.log('[API/ASK] Haciendo fallback a Gemini...');
+            const llmModel = genAI.getGenerativeModel({ model: 'models/gemini-1.5-pro-latest' });
+            const llmResp = await llmModel.generateContent(prompt);
+            answer = llmResp.response.text().trim();
+            modelUsed = 'gemini-pro';
+            console.log('[API/ASK] Respuesta recibida de Gemini:', answer);
+          } catch (geminiError) {
+            console.error('[API/ASK] Error en Gemini:', geminiError);
+            throw new Error('No se pudo generar una respuesta. Por favor, inténtalo de nuevo más tarde.');
+          }
+        } else {
+          throw new Error('No hay proveedores de IA disponibles. Por favor, verifica la configuración.');
+        }
+      }
+    } else if (genAI) {
+      // Usar Gemini si está configurado
+      try {
         const llmModel = genAI.getGenerativeModel({ model: 'models/gemini-1.5-pro-latest' });
         const llmResp = await llmModel.generateContent(prompt);
         answer = llmResp.response.text().trim();
         modelUsed = 'gemini-pro';
         console.log('[API/ASK] Respuesta recibida de Gemini:', answer);
+      } catch (error) {
+        console.error('[API/ASK] Error al usar Gemini:', error);
+        throw new Error('No se pudo generar una respuesta con Gemini. Por favor, inténtalo de nuevo.');
       }
-    } else {
-      // Usar Gemini por defecto
-      const llmModel = genAI.getGenerativeModel({ model: 'models/gemini-1.5-pro-latest' });
-      const llmResp = await llmModel.generateContent(prompt);
-      answer = llmResp.response.text().trim();
-      modelUsed = 'gemini-pro';
-      console.log('[API/ASK] Respuesta recibida de Gemini:', answer);
     }
 
     // Logging de interacción en Supabase

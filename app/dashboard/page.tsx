@@ -1,10 +1,41 @@
 "use client";
-import { useEffect } from "react";
 
-import { useAuth } from "../context/AuthContext";
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { createClient } from '@supabase/supabase-js';
+
+// Crear cliente Supabase
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function DashboardStatic() {
-  const { user, loading, org, logout } = useAuth();
+  const { user, loading, org, logout, session } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const token = searchParams.get('token');
+
+  // Manejar autenticación con token de URL (para OAuth)
+  useEffect(() => {
+    const handleTokenAuth = async () => {
+      if (token && !user) {
+        try {
+          // Guardar el token en localStorage para que el AuthContext lo detecte
+          localStorage.setItem('preventi_token', token);
+          
+          // Forzar recarga para que el AuthContext procese el token
+          window.location.href = '/dashboard-index';
+        } catch (error) {
+          console.error('Error al procesar token:', error);
+          router.push('/login');
+        }
+      }
+    };
+
+    handleTokenAuth();
+  }, [token, user, router]);
 
   if (loading) return <div className="flex items-center justify-center h-screen">Cargando...</div>;
   if (!user) {
