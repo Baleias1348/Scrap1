@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const from = searchParams.get('from') || '/dashboard';
+  const from = searchParams.get('from') || '/dashboard-index';
   const { loginWithGoogle, loading, session } = useAuth();
 
   useEffect(() => {

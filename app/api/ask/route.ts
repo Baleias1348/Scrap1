@@ -44,12 +44,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import OpenAI from 'openai';
 
 // Inicializar cliente de Google Generative AI solo si la clave está disponible
 let genAI: GoogleGenerativeAI | null = null;
 if (process.env.GOOGLE_API_KEY) {
   genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+} else {
+  console.error('[API/ASK] No se encontró GOOGLE_API_KEY en el entorno.');
 }
 
 // --- CONFIGURACIÓN ---
@@ -115,24 +116,22 @@ export async function POST(req: NextRequest) {
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
     console.log('[API/ASK] Cliente Supabase creado');
 
-    // --- Embeddings: usar OpenAI si hay clave, si no error ---
+    // --- Embeddings: usar SOLO Gemini 2.5 Pro ---
     let questionEmbedding;
-    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-    if (OPENAI_API_KEY) {
-      const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
-      try {
-        console.log('[API/ASK] Solicitando embedding a OpenAI...');
-        const embeddingResponse = await openai.embeddings.create({
-          model: 'text-embedding-3-small',
-          input: question,
-        });
-        questionEmbedding = embeddingResponse.data[0].embedding;
-        console.log('[API/ASK] Embedding generado con OpenAI:', questionEmbedding.length);
-      } catch (error: any) {
-        return NextResponse.json({ error: 'No se pudo generar el embedding de la pregunta con OpenAI.', details: error?.message || error?.toString() }, { status: 500 });
-      }
-    } else {
-      return NextResponse.json({ error: 'No hay clave de OpenAI para generar embeddings.' }, { status: 500 });
+    if (!genAI) {
+      return NextResponse.json({ error: 'No hay clave de Google Generative AI (Gemini) configurada.' }, { status: 500 });
+    }
+    try {
+      console.log('[API/ASK] Solicitando embedding a Gemini 2.5 Pro...');
+      const embeddingModel = genAI.getGenerativeModel({ model: 'models/embedding-001' });
+      const embeddingResp = await embeddingModel.embedContent({
+        content: question,
+        taskType: 'retrieval_query',
+      });
+      questionEmbedding = embeddingResp.embedding.values;
+      console.log('[API/ASK] Embedding generado con Gemini:', questionEmbedding.length);
+    } catch (error: any) {
+      return NextResponse.json({ error: 'No se pudo generar el embedding de la pregunta con Gemini.', details: error?.message || error?.toString() }, { status: 500 });
     }
     if (!questionEmbedding || questionEmbedding.length !== VECTOR_SIZE) {
       return NextResponse.json({ error: 'No se pudo generar el embedding de la pregunta.', details: questionEmbedding }, { status: 500 });
@@ -182,66 +181,20 @@ export async function POST(req: NextRequest) {
     let outputTokens = null;
     let estimatedCost = null;
     
-    // Usar la variable OPENAI_API_KEY ya declarada arriba (línea ~110)
-    console.log('[API/ASK] Selección de modelo. ¿OPENAI_API_KEY presente?', !!process.env.OPENAI_API_KEY);
-    if (process.env.OPENAI_API_KEY) {
-      // Usar OpenAI GPT-4o si hay API Key
-      const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
-      try {
-        console.log('[API/ASK] Llamando a OpenAI GPT-5...');
-        const completion = await openai.chat.completions.create({
-          // LOG: prompt enviado
-          // console.log('[API/ASK] Prompt enviado a OpenAI:', prompt);
-
-          model: 'gpt-5', // Exclusivo: siempre usa ChatGPT 5
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.2,
-          max_tokens: 1024,
-        });
-        answer = completion.choices[0].message.content?.trim() || '';
-        console.log('[API/ASK] Respuesta recibida de OpenAI:', answer);
-        // Extraer tokens y costo si están disponibles
-        modelUsed = 'gpt-5';
-        if (completion.usage) {
-          inputTokens = completion.usage.prompt_tokens;
-          outputTokens = completion.usage.completion_tokens;
-        }
-        // Estimar costo aproximado
-        if (inputTokens !== null && outputTokens !== null) {
-          // Ejemplo: $0.01 cada 1000 tokens
-          estimatedCost = ((inputTokens + outputTokens) / 1000 * 0.01).toFixed(4);
-        }
-      } catch (openaiError: any) {
-        console.error('[API/ASK] Error en OpenAI:', openaiError);
-        // Si falla OpenAI, usar Gemini como fallback
-        if (genAI) {
-          try {
-            console.log('[API/ASK] Haciendo fallback a Gemini...');
-            const llmModel = genAI.getGenerativeModel({ model: 'models/gemini-1.5-pro-latest' });
-            const llmResp = await llmModel.generateContent(prompt);
-            answer = llmResp.response.text().trim();
-            modelUsed = 'gemini-pro';
-            console.log('[API/ASK] Respuesta recibida de Gemini:', answer);
-          } catch (geminiError) {
-            console.error('[API/ASK] Error en Gemini:', geminiError);
-            throw new Error('No se pudo generar una respuesta. Por favor, inténtalo de nuevo más tarde.');
-          }
-        } else {
-          throw new Error('No hay proveedores de IA disponibles. Por favor, verifica la configuración.');
-        }
-      }
-    } else if (genAI) {
-      // Usar Gemini si está configurado
-      try {
-        const llmModel = genAI.getGenerativeModel({ model: 'models/gemini-1.5-pro-latest' });
-        const llmResp = await llmModel.generateContent(prompt);
-        answer = llmResp.response.text().trim();
-        modelUsed = 'gemini-pro';
-        console.log('[API/ASK] Respuesta recibida de Gemini:', answer);
-      } catch (error) {
-        console.error('[API/ASK] Error al usar Gemini:', error);
-        throw new Error('No se pudo generar una respuesta con Gemini. Por favor, inténtalo de nuevo.');
-      }
+    // Usar SOLO Gemini 2.5 Pro para generación
+    if (!genAI) {
+      throw new Error('No hay clave de Google Generative AI (Gemini) configurada.');
+    }
+    try {
+      console.log('[API/ASK] Llamando a Gemini 2.5 Pro...');
+      const llmModel = genAI.getGenerativeModel({ model: 'models/gemini-2.5-pro-latest' });
+      const llmResp = await llmModel.generateContent(prompt);
+      answer = llmResp.response.text().trim();
+      modelUsed = 'gemini-2.5-pro-latest';
+      console.log('[API/ASK] Respuesta recibida de Gemini 2.5 Pro:', answer);
+    } catch (error) {
+      console.error('[API/ASK] Error al usar Gemini 2.5 Pro:', error);
+      throw new Error('No se pudo generar una respuesta con Gemini 2.5 Pro. Por favor, inténtalo de nuevo.');
     }
 
     // Logging de interacción en Supabase

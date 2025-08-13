@@ -20,7 +20,7 @@ export function middleware(request: NextRequest) {
 
   // Si el usuario está autenticado y está en la página de login, redirigir al dashboard
   if (token && path === '/login') {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return NextResponse.redirect(new URL('/dashboard-index', request.url));
   }
 
   return NextResponse.next();
