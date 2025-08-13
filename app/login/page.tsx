@@ -1,5 +1,5 @@
 // Página de bienvenida con login semi-manual y lógica de token
-// Cambio menor para forzar commit y build
+// Cambio menor para forzar commit y build - 2025-08-13 20:57
 'use client';
 
 import { useEffect, useState } from 'react';
