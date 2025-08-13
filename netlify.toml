@@ -2,17 +2,6 @@
   command = "npm run build"
   publish = ".next"
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
-# Manejo de rutas para autenticación
-# Netlify config para Next.js App Router SSR
-[build]
-  command = "npm run build"
-  publish = ".next"
-
 # Redirección principal para SSR (Next.js)
 [[redirects]]
   from = "/*"
@@ -24,4 +13,3 @@
   from = "/api/*"
   to = "/.netlify/functions/next"
   status = 200
-
