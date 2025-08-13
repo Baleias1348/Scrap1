@@ -1,45 +1,106 @@
-// Token handler para OAuth: procesa el hash y redirige
+// Página de bienvenida con login semi-manual y lógica de token
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function LoginBridge() {
+export default function LoginManual() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [accessToken, setAccessToken] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // Procesa el hash de la URL (tokens)
       if (window.location.hash) {
         const params = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token');
-        // Puedes guardar otros tokens si los necesitas
-
-        if (accessToken) localStorage.setItem('access_token', accessToken);
-        if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
-
-        // Limpia el hash de la URL
+        const token = params.get('access_token');
+        setAccessToken(token);
+        // Limpia el hash visualmente
         window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
-
-        // Redirige al dashboard o a la ruta original
-        const from = searchParams.get('from') || '/dashboard-index';
-        router.replace(from);
-        return;
       }
     }
-  }, [router, searchParams]);
+  }, []);
+
+  const handleContinue = () => {
+    if (accessToken) {
+      localStorage.setItem('access_token', accessToken);
+      const from = searchParams.get('from') || '/dashboard-index';
+      router.replace(from);
+    }
+  };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-lg shadow-md">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          <p className="text-gray-600">Procesando autenticación...</p>
-        </div>
-      </div>
-    </div>
+    <body className="min-h-screen flex items-center justify-center relative font-sans">
+      <div className="bg-animated"></div>
+      <main className="relative z-10 flex flex-col items-center justify-center w-full px-4">
+        <h1 className="text-white text-4xl md:text-5xl font-semibold tracking-tight mb-6 text-center drop-shadow-lg">
+          ¡Bienvenido!
+        </h1>
+        <p className="text-slate-300 text-lg md:text-xl font-normal mb-8 text-center max-w-xl drop-shadow">
+          Nos alegra tenerte aquí. Explora nuevas posibilidades y comienza tu experiencia ahora mismo.
+        </p>
+        <button
+          className="bg-white/90 hover:bg-white text-neutral-900 font-medium px-8 py-3 rounded-xl text-base shadow transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+          onClick={handleContinue}
+          disabled={!accessToken}
+        >
+          Entrar
+        </button>
+        {!accessToken && (
+          <p className="text-red-400 mt-4">No se detectó token de sesión. Por favor, inicia sesión nuevamente.</p>
+        )}
+      </main>
+      <style jsx global>{`
+        .bg-animated {
+          position: fixed;
+          inset: 0;
+          width: 100vw;
+          height: 100vh;
+          z-index: 0;
+          pointer-events: none;
+          --stripes: repeating-linear-gradient(
+            100deg,
+            #222 0%,
+            #222 7%,
+            transparent 10%,
+            transparent 12%,
+            #222 16%
+          );
+          --rainbow: repeating-linear-gradient(
+            100deg,
+            #60a5fa 10%,
+            #e879f9 15%,
+            #60a5fa 20%,
+            #5eead4 25%,
+            #60a5fa 30%
+          );
+          background-image: var(--stripes), var(--rainbow);
+          background-size: 300%, 200%;
+          background-position: 50% 50%, 50% 50%;
+          filter: blur(10px) brightness(0.9) invert(0%);
+          mask-image: radial-gradient(ellipse at 100% 0%, black 40%, transparent 70%);
+          -webkit-mask-image: radial-gradient(ellipse at 100% 0%, black 40%, transparent 70%);
+          overflow: hidden;
+          transition: background 0.2s;
+        }
+        .bg-animated::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background-image: var(--stripes), var(--rainbow);
+          background-size: 200%, 100%;
+          animation: smoothBg 60s linear infinite;
+          background-attachment: fixed;
+          mix-blend-mode: difference;
+          pointer-events: none;
+          z-index: 1;
+        }
+        @keyframes smoothBg {
+          0% { background-position: 50% 50%, 50% 50%; }
+          100% { background-position: 350% 50%, 350% 50%; }
+        }
+      `}</style>
+    </body>
   );
 }
 
