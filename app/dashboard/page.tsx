@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { createClient } from '@supabase/supabase-js';
 
@@ -11,14 +11,22 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export default function DashboardStatic() {
+// Evitar prerenderizado estático
+// https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+export default function DashboardPage() {
   const { user, loading, org, logout, session } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
-  // Manejar autenticación con token de URL (para OAuth)
+  const [isClient, setIsClient] = useState(false);
+
   useEffect(() => {
+    setIsClient(true);
+    
     const handleTokenAuth = async () => {
       if (token && !user) {
         try {
@@ -27,23 +35,37 @@ export default function DashboardStatic() {
           
           // Forzar recarga para que el AuthContext procese el token
           window.location.href = '/dashboard-index';
+          return;
         } catch (error) {
           console.error('Error al procesar token:', error);
           router.push('/login');
+          return;
         }
+      }
+      
+      // Si no hay token pero tampoco hay usuario, redirigir a login
+      if (!user) {
+        router.push('/login');
       }
     };
 
     handleTokenAuth();
   }, [token, user, router]);
+  
+  // Renderizar solo en el cliente
+  if (!isClient) {
+    return <div className="flex items-center justify-center h-screen">Cargando...</div>;
+  }
 
-  if (loading) return <div className="flex items-center justify-center h-screen">Cargando...</div>;
+  if (loading || !isClient) return <div className="flex items-center justify-center h-screen">Cargando...</div>;
+  
   if (!user) {
-    // Redirigir a login si no hay sesión
-    if (typeof window !== "undefined") {
-      window.location.href = "https://preventiflow.com/";
+    // Usar window.location para redirección segura en el cliente
+    if (typeof window !== 'undefined') {
+      window.location.href = 'https://preventiflow.com/';
+      return <div>Redirigiendo a login...</div>;
     }
-    return <div>Redirigiendo a login...</div>;
+    return null;
   }
   if (!org) {
     return (
