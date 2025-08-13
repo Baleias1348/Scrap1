@@ -1,56 +1,48 @@
+// Token handler para OAuth: procesa el hash y redirige
 'use client';
 
 import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '../context/AuthContext';
 
-export default function LoginPage() {
+export default function LoginBridge() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const from = searchParams.get('from') || '/dashboard-index';
-  const { loginWithGoogle, loading, session } = useAuth();
 
   useEffect(() => {
-    // Si ya hay una sesión, redirigir al dashboard o a la ruta de origen
-    if (session) {
-      router.push(from);
-    } else if (!loading) {
-      // Si no hay sesión y ya terminó de cargar, iniciar el flujo de login
-      const initLogin = async () => {
-        try {
-          await loginWithGoogle(from);
-        } catch (error) {
-          console.error('Error al iniciar sesión:', error);
-          // Redirigir a la página de error o mostrar un mensaje
-          router.push(`/error?message=${encodeURIComponent('No se pudo iniciar sesión')}`);
-        }
-      };
-      
-      initLogin();
+    if (typeof window !== 'undefined') {
+      // Procesa el hash de la URL (tokens)
+      if (window.location.hash) {
+        const params = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+        // Puedes guardar otros tokens si los necesitas
+
+        if (accessToken) localStorage.setItem('access_token', accessToken);
+        if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
+
+        // Limpia el hash de la URL
+        window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+
+        // Redirige al dashboard o a la ruta original
+        const from = searchParams.get('from') || '/dashboard-index';
+        router.replace(from);
+        return;
+      }
     }
-  }, [session, loading, from, router, loginWithGoogle]);
+  }, [router, searchParams]);
 
-  // Mostrar un indicador de carga mientras se verifica la sesión
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="p-8 bg-white rounded-lg shadow-md">
-          <div className="flex flex-col items-center space-y-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-            <p className="text-gray-600">Verificando sesión...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Si no hay sesión, mostrar el botón de inicio de sesión
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
       <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-lg shadow-md">
-        <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-gray-900">
-            Iniciar sesión
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          <p className="text-gray-600">Procesando autenticación...</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
           </h2>
           <p className="mt-2 text-sm text-gray-600">
             Por favor inicia sesión para continuar
