@@ -1,7 +1,7 @@
 "use client";
 
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { createClient } from '@supabase/supabase-js';
 
@@ -12,16 +12,53 @@ const supabase = createClient(
 );
 
 // Evitar prerenderizado estático
-// https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
 export const dynamic = 'force-dynamic';
 
-export default function DashboardPage() {
-  const { user, loading, org, logout, session } = useAuth();
-  const router = useRouter();
+// Componente que usa useSearchParams
+function DashboardContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
-
+  const { user, loading, org, logout, session } = useAuth();
+  const router = useRouter();
   const [isClient, setIsClient] = useState(false);
+  
+  return (
+    <DashboardContentInner 
+      token={token} 
+      user={user} 
+      loading={loading} 
+      org={org} 
+      logout={logout} 
+      session={session} 
+      router={router}
+      isClient={isClient}
+      setIsClient={setIsClient}
+    />
+  );
+}
+
+// Componente interno que contiene la lógica
+function DashboardContentInner({ 
+  token, 
+  user, 
+  loading, 
+  org, 
+  logout, 
+  session, 
+  router, 
+  isClient, 
+  setIsClient 
+}: { 
+  token: string | null; 
+  user: any; 
+  loading: boolean; 
+  org: any; 
+  logout: () => void; 
+  session: any; 
+  router: any; 
+  isClient: boolean; 
+  setIsClient: (value: boolean) => void;
+}) {
 
   useEffect(() => {
     setIsClient(true);
@@ -90,5 +127,18 @@ export default function DashboardPage() {
       {/* Aquí puedes renderizar el resto del dashboard, chat, menús, etc. */}
       <div className="mt-8 text-gray-200">¡Tu sesión y organización están activas! Integra aquí tus componentes principales.</div>
     </div>
+  );
+}
+
+// Componente principal que envuelve todo en Suspense
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 }
