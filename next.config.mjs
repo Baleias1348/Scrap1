@@ -17,13 +17,8 @@ const nextConfig = {
   },
   // Configuración de redirecciones
   async redirects() {
-    return [
-      {
-        source: '/',
-        destination: '/dashboard',
-        permanent: false,
-      }
-    ];
+    // Desactivado para evitar bucles de redirección entre '/' y '/dashboard'
+    return [];
   },
   // Configuración de encabezados de seguridad
   headers: async () => [

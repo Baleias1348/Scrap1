@@ -13,7 +13,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
 
   if (!user) {
     if (typeof window !== "undefined") {
-      router.replace("/login");
+      router.replace("/");
     }
     return null;
   }

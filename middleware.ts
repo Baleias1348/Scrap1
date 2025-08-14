@@ -13,11 +13,25 @@ export async function middleware(request: NextRequest) {
 
   // Solo proteger rutas privadas (ejemplo: dashboard)
   const isDashboard = path.startsWith('/dashboard');
-  const isAsset = path.startsWith('/_next') || path.startsWith('/static') || path.startsWith('/public') || path.startsWith('/images');
+  const isAsset =
+    path.startsWith('/_next') ||
+    path.startsWith('/static') ||
+    path.startsWith('/public') ||
+    path.startsWith('/images');
+
+  // Debug (no expone tokens). Útil para verificar cookies en Netlify
+  const hasSbAccess = request.cookies.get('sb-access-token') !== undefined;
+  const hasSbRefresh = request.cookies.get('sb-refresh-token') !== undefined;
+  const debugStr = `p=${path}; session=${!!session}; cA=${hasSbAccess ? '1' : '0'}; cR=${hasSbRefresh ? '1' : '0'}`;
+  try { console.log('[MW]', debugStr); } catch {}
+  res.headers.set('x-debug-auth', debugStr);
 
   // Si no hay sesión y es dashboard, redirigir a landing
   if (!session && isDashboard && !isAsset) {
-    return NextResponse.redirect(new URL('/', request.url));
+    const url = new URL('/', request.url);
+    const redirectRes = NextResponse.redirect(url);
+    redirectRes.headers.set('x-debug-auth', debugStr);
+    return redirectRes;
   }
 
   return res;
@@ -25,7 +39,6 @@ export async function middleware(request: NextRequest) {
 
 // Configuración del middleware
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
+  // Limitar el middleware solo al dashboard para evitar efectos colaterales
+  matcher: ['/dashboard/:path*'],
 };
