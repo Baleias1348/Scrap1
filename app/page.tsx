@@ -1,72 +1,85 @@
 "use client";
+import React from "react";
+
+export default function HomePage() {
+  return (
+    <div className="min-h-screen flex items-center justify-center relative font-sans">
+      <div className="bg-animated absolute inset-0 z-0"></div>
+      <main className="relative z-10 flex flex-col items-center justify-center w-full px-4">
+        <h1 className="text-white text-4xl md:text-5xl font-semibold tracking-tight mb-6 text-center drop-shadow-lg">
+          ¡Bienvenido a Preventi Flow!
+        </h1>
+        <p className="text-slate-300 text-lg md:text-xl font-normal mb-8 text-center max-w-xl drop-shadow">
+          Plataforma de prevención, gestión y automatización.
+        </p>
+        <div className="flex gap-4">
+          <a href="/login" className="bg-white/90 hover:bg-white text-neutral-900 font-medium px-8 py-3 rounded-xl text-base shadow transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2">Iniciar sesión</a>
+          <a href="/register" className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-8 py-3 rounded-xl text-base shadow transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2">Registrarse</a>
+        </div>
+      </main>
+      <style jsx global>{`
+        .bg-animated {
+          position: fixed;
+          inset: 0;
+          width: 100vw;
+          height: 100vh;
+          z-index: 0;
+          pointer-events: none;
+          background: linear-gradient(100deg, #222 0%, #222 7%, transparent 10%, transparent 12%, #222 16%),
+            repeating-linear-gradient(100deg, #60a5fa 10%, #e879f9 15%, #60a5fa 20%, #5eead4 25%, #60a5fa 30%);
+          background-size: 300%, 200%;
+          background-position: 50% 50%, 50% 50%;
+          filter: blur(10px) brightness(0.9) invert(0%);
+          mask-image: radial-gradient(ellipse at 100% 0%, black 40%, transparent 70%);
+          -webkit-mask-image: radial-gradient(ellipse at 100% 0%, black 40%, transparent 70%);
+          overflow: hidden;
+          transition: background 0.2s;
+        }
+      `}</style>
+    </div>
+  );
+}
+
 import React, { useEffect, useRef } from "react";
 import ChatComponent from "./components/ChatComponent";
 
 export default function HomePage() {
-  // Referencia para el fondo animado
-  const vantaRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    let vantaEffect: any;
-    if (typeof window !== "undefined" && window.VANTA && vantaRef.current) {
-      vantaEffect = window.VANTA.NET({
-        el: vantaRef.current,
-        mouseControls: true,
-        touchControls: true,
-        gyroControls: false,
-        minHeight: 200.0,
-        minWidth: 200.0,
-        scale: 1.0,
-        scaleMobile: 1.0,
-        color: 0x5E6AD2,
-        backgroundColor: 0x101014,
-        points: 8.0,
-        maxDistance: 25.0,
-        spacing: 20.0
-      });
-    }
-    return () => {
-      if (vantaEffect && vantaEffect.destroy) vantaEffect.destroy();
-    };
-  }, []);
-
   return (
-    <div className="relative min-h-screen" style={{ fontFamily: 'Inter, sans-serif' }}>
-      {/* Fondo animado y blur azul SIEMPRE detrás */}
-      <div ref={vantaRef} id="vanta-bg" className="absolute inset-0 z-0" />
-      <div id="blur-bg" className="absolute top-1/2 left-1/2 w-[600px] h-[600px] -translate-x-1/2 -translate-y-1/2 bg-[#5E6AD2] opacity-10 blur-[100px] rounded-full pointer-events-none z-0"></div>
-      {/* Sidebar avanzada */}
-      <div className="fixed top-0 left-0 h-screen w-64 z-20 overflow-auto flex flex-col bg-[#15151B] border-[rgba(255,255,255,0.1)] border-r">
-        <div className="p-5 flex items-center border-b border-[rgba(255,255,255,0.1)]">
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[28px] h-[28px]" style={{ color: 'rgb(252, 211, 77)' }}><circle cx="12" cy="12" r="3"></circle><path d="M12 16.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 1 1 12 7.5a4.5 4.5 0 1 1 4.5 4.5 4.5 4.5 0 1 1-4.5 4.5"></path><path d="M12 7.5V9"></path><path d="M7.5 12H9"></path><path d="M16.5 12H15"></path><path d="M12 16.5V15"></path><path d="m8 8 1.88 1.88"></path><path d="M14.12 9.88 16 8"></path><path d="m8 16 1.88-1.88"></path><path d="M14.12 14.12 16 16"></path></svg>
-          <span className="text-xl font-normal text-cyan-400 font-playfair ml-3">Preventi Flow</span>
+    <div className="min-h-screen flex items-center justify-center relative font-sans">
+      <div className="bg-animated absolute inset-0 z-0"></div>
+      <main className="relative z-10 flex flex-col items-center justify-center w-full px-4">
+        <h1 className="text-white text-4xl md:text-5xl font-semibold tracking-tight mb-6 text-center drop-shadow-lg">
+          ¡Bienvenido a Preventi Flow!
+        </h1>
+        <p className="text-slate-300 text-lg md:text-xl font-normal mb-8 text-center max-w-xl drop-shadow">
+          Plataforma de prevención, gestión y automatización.
+        </p>
+        <div className="flex gap-4">
+          <a href="/login" className="bg-white/90 hover:bg-white text-neutral-900 font-medium px-8 py-3 rounded-xl text-base shadow transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2">Iniciar sesión</a>
+          <a href="/register" className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-8 py-3 rounded-xl text-base shadow transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2">Registrarse</a>
         </div>
-        <div className="p-5">
-          <button className="w-full hover:bg-[#7b85e2] transition-all duration-150 flex hover:scale-[1.03] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5E6AD2]/70 group text-sm text-white bg-[#5E6AD2] rounded-md pt-2 pr-4 pb-2 pl-4 shadow-sm items-center justify-center">
-            <svg className="w-5 h-5 mr-2 group-hover:rotate-90 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-            </svg>
-            Nuevo chat
-          </button>
-        </div>
-        <div className="uppercase text-xs font-medium text-gray-400 pt-2 pr-3 pb-2 pl-3">Consultas recientes</div>
-        <div className="space-y-1 px-3">
-          <a href="#" className="flex items-center py-2 px-3 rounded-md bg-[#232337] transition-all duration-150 hover:bg-[#353559] group ring-1 ring-[#5E6AD2]/30 shadow-sm relative">
-            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#5E6AD2] rounded-r-full"></span>
-            <svg className="w-4 h-4 mr-3 text-[#5E6AD2] group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
-            </svg>
-            <span>Plan de emergencia</span>
-          </a>
-          <a href="#" className="flex items-center py-2 px-3 rounded-md hover:bg-[#232337] transition-all duration-150 group">
-            <svg className="w-4 h-4 mr-3 text-gray-400 group-hover:scale-110 group-hover:text-[#5E6AD2] transition-all duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
-            </svg>
-            <span>Documentos firmados</span>
-          </a>
-          <a href="#" className="flex items-center py-2 px-3 rounded-md hover:bg-[#232337] transition-all duration-150 group">
-            <svg className="w-4 h-4 mr-3 text-gray-400 group-hover:scale-110 group-hover:text-[#5E6AD2] transition-all duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
-            </svg>
+      </main>
+      <style jsx global>{`
+        .bg-animated {
+          position: fixed;
+          inset: 0;
+          width: 100vw;
+          height: 100vh;
+          z-index: 0;
+          pointer-events: none;
+          background: linear-gradient(100deg, #222 0%, #222 7%, transparent 10%, transparent 12%, #222 16%),
+            repeating-linear-gradient(100deg, #60a5fa 10%, #e879f9 15%, #60a5fa 20%, #5eead4 25%, #60a5fa 30%);
+          background-size: 300%, 200%;
+          background-position: 50% 50%, 50% 50%;
+          filter: blur(10px) brightness(0.9) invert(0%);
+          mask-image: radial-gradient(ellipse at 100% 0%, black 40%, transparent 70%);
+          -webkit-mask-image: radial-gradient(ellipse at 100% 0%, black 40%, transparent 70%);
+          overflow: hidden;
+          transition: background 0.2s;
+        }
+      `}</style>
+    </div>
+  );
             <span>Biblioteca legal</span>
           </a>
         </div>
