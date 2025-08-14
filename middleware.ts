@@ -11,23 +11,13 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
 
-  // Rutas públicas que no requieren autenticación
-  const publicPaths = ['/login', '/auth', '/api/auth', '/oauth-callback'];
-  const isPublicPath = publicPaths.some(publicPath =>
-    path === publicPath || path.startsWith(publicPath + '/')
-  );
+  // Solo proteger rutas privadas (ejemplo: dashboard)
+  const isDashboard = path.startsWith('/dashboard');
   const isAsset = path.startsWith('/_next') || path.startsWith('/static') || path.startsWith('/public') || path.startsWith('/images');
 
-  // Proteger rutas privadas cuando no hay sesión
-  if (!session && !isPublicPath && !isAsset) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('from', path);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  // Si ya está autenticado y entra a /login, enviarlo al dashboard
-  if (session && path === '/login') {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+  // Si no hay sesión y es dashboard, redirigir a landing
+  if (!session && isDashboard && !isAsset) {
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
   return res;

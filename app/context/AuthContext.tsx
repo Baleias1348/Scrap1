@@ -20,6 +20,8 @@ interface AuthContextProps {
   setOrg: (org: Organization | null) => void;
   logout: () => Promise<void>;
   loginWithGoogle: (redirectTo?: string) => Promise<void>;
+  signUp: (email: string, password: string, extra?: Record<string, any>) => Promise<{ error: any } | { data: any }>;
+  loginWithPassword: (email: string, password: string) => Promise<{ error: any } | { data: any }>;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -113,6 +115,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [supabase.auth]);
 
+  // Registro con email/password
+  const signUp = async (email: string, password: string, extra?: Record<string, any>) => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: extra || {},
+        },
+      });
+      return { data, error };
+    } catch (error) {
+      return { error };
+    }
+  };
+
+  // Login con email/password
+  const loginWithPassword = async (email: string, password: string) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      return { data, error };
+    } catch (error) {
+      return { error };
+    }
+  };
+
   // Iniciar sesión con Google
   const loginWithGoogle = async (redirectTo: string = '/dashboard'): Promise<void> => {
     try {
@@ -145,8 +176,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(null);
       setOrg(null);
       
-      // Redirigir a la página de login
-      window.location.href = '/login';
+      // Redirigir a la landing
+      window.location.href = '/';
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
       throw error;
@@ -161,7 +192,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setOrg,
     logout,
     loginWithGoogle,
+    signUp,
+    loginWithPassword,
   };
+
 
   return (
     <AuthContext.Provider value={value}>
