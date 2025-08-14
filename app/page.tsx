@@ -19,18 +19,44 @@ export default function HomePage() {
     const { email, password } = loginData;
     const res = await loginWithPassword(email, password);
     setLoading(false);
-    if ((res as any).error) setError('Credenciales incorrectas');
-    else router.replace('/dashboard');
+    if (res && 'error' in res && res.error) {
+      setError('Credenciales incorrectas');
+    } else {
+      router.replace('/dashboard');
+    }
   };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true); setError(null);
     const { nombres, apellidos, email, password, cargo, telefono } = registerData;
     const res = await signUp(email, password, { nombres, apellidos, cargo, telefono });
     setLoading(false);
-    if ((res as any).error) setError('No se pudo registrar.');
-    else setView('login');
+    if (res && 'error' in res && res.error) {
+      setError('No se pudo registrar.');
+    } else {
+      // Intentar login automático tras registro
+      const loginRes = await loginWithPassword(email, password);
+      if (loginRes && 'error' in loginRes && loginRes.error) {
+        setError('Usuario registrado, pero error al iniciar sesión. Intenta ingresar manualmente.');
+        setView('login');
+      } else {
+        router.replace('/dashboard');
+      }
+    }
   };
+
+  const handleGoogleLogin = async () => {
+    setLoading(true); setError(null);
+    try {
+      await loginWithGoogle('/dashboard');
+    } catch (err) {
+      setError('Error con Google OAuth.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   return (
     <div className="antialiased selection:bg-white/10 selection:text-white text-white bg-neutral-950 min-h-screen flex flex-col" style={{fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, \'Segoe UI\', Roboto'}}>
@@ -97,7 +123,7 @@ export default function HomePage() {
                   {error && <div className="text-red-400 text-center">{error}</div>}
                   <button type="submit" className="w-full bg-[#ff6a00] hover:bg-[#ff8129] text-white font-bold py-2 rounded-lg transition">{loading ? 'Cargando...' : 'Ingresar'}</button>
                 </form>
-                <button onClick={()=>loginWithGoogle('/dashboard')} className="w-full mt-2 bg-white/90 hover:bg-white text-neutral-900 font-medium py-2 rounded-lg transition flex items-center justify-center"><span className="mr-2">G</span> Iniciar sesión con Google</button>
+                <button onClick={handleGoogleLogin} className="w-full mt-2 bg-white/90 hover:bg-white text-neutral-900 font-medium py-2 rounded-lg transition flex items-center justify-center"><span className="mr-2">G</span> Iniciar sesión con Google</button>
                 <div className="text-center mt-2">
                   ¿No tienes cuenta? <button className="text-[#ff6a00] underline" onClick={()=>{setView('register');setError(null);}}>Regístrate</button>
                 </div>
