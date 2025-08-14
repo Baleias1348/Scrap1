@@ -1,4 +1,4 @@
-"Codigo"	"Descripcion"	"Afecto_IVA"	"Categoria_Tributaria"
+"codigo"	"descripcion"	"afecto_iva"	"categoria_tributaria"
 "11101"	"CULTIVO DE TRIGO"	"SI"	"1"
 "11102"	"CULTIVO DE MAÍZ"	"SI"	"1"
 "11103"	"CULTIVO DE AVENA"	"SI"	"1"

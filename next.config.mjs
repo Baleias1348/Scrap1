@@ -22,12 +22,7 @@ const nextConfig = {
         source: '/',
         destination: '/dashboard',
         permanent: false,
-      },
-      {
-        source: '/login',
-        destination: '/auth/login',
-        permanent: true,
-      },
+      }
     ];
   },
   // Configuración de encabezados de seguridad

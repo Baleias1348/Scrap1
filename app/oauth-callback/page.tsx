@@ -2,24 +2,21 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+// Página legacy no usada con el flujo actual (PKCE + /auth/callback).
+// Mantener solo como compatibilidad por si un proveedor antiguo redirige con hash.
 export default function OAuthCallback() {
   const router = useRouter();
 
   useEffect(() => {
-    // Extraer el access_token del hash de la URL
     const hash = window.location.hash.substring(1);
     const params = new URLSearchParams(hash);
-    const token = params.get("access_token");
-    if (token) {
-      // Guardar el token en localStorage (ajusta la clave si tu contexto usa otra)
-      localStorage.setItem("supabase.auth.token", token);
-      // Opcional: fuerza recarga de sesión en contexto global si lo necesitas
-      router.replace("/dashboard");
+    // Si llegan tokens en el hash desde un flujo implícito, redirigir al login moderno.
+    if (params.get("access_token") || params.get("refresh_token")) {
+      router.replace("/login?error=deprecated_flow");
     } else {
-      // Manejar error o redirigir a login
-      router.replace("/login?error=oauth");
+      router.replace("/login");
     }
   }, [router]);
 
-  return <div>Procesando autenticación...</div>;
+  return <div>Redirigiendo...</div>;
 }

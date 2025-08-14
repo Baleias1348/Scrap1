@@ -1,52 +1,29 @@
-// Página de bienvenida con login seguro
+// Página de bienvenida con login seguro (Supabase OAuth + PKCE)
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { user, loading, loginWithGoogle } = useAuth();
 
+  // Si ya hay usuario autenticado, redirigir al dashboard
   useEffect(() => {
-    // Extraer token de la URL hash
-    const hash = window.location.hash.substring(1);
-    if (hash) {
-      try {
-        const params = new URLSearchParams(hash);
-        const token = params.get('access_token');
-        setAccessToken(token);
-        
-        // Limpiar hash de la URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-      } catch (err) {
-        setError('Error al procesar el token de acceso');
-      }
-    }
-  }, []);
-
-  const handleLoginRedirect = () => {
-    // Redirigir al proveedor de autenticación
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    const redirectUri = encodeURIComponent(window.location.origin + '/login');
-    const scope = encodeURIComponent('openid profile email');
-    
-    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=${clientId}&` +
-      `redirect_uri=${redirectUri}&` +
-      `response_type=token&` +
-      `scope=${scope}`;
-  };
-
-  useEffect(() => {
-    // Redirigir al dashboard si hay token válido
-    if (accessToken) {
+    if (!loading && user) {
       const from = searchParams.get('from') || '/dashboard';
       router.replace(from);
     }
-  }, [accessToken, router, searchParams]);
+  }, [user, loading, router, searchParams]);
+
+  const handleGoogle = async () => {
+    const from = searchParams.get('from') || '/dashboard';
+    await loginWithGoogle(from);
+  };
+
+  const errorParam = searchParams.get('error');
 
   return (
     <div className="min-h-screen flex items-center justify-center relative font-sans">
@@ -56,19 +33,20 @@ export default function LoginPage() {
           ¡Bienvenido!
         </h1>
         <p className="text-slate-300 text-lg md:text-xl font-normal mb-8 text-center max-w-xl drop-shadow">
-          Nos alegra tenerte aquí. Por favor inicia sesión para continuar.
+          Inicia sesión para continuar.
         </p>
-        
+
         <div className="flex flex-col gap-4 w-full max-w-sm">
           <button
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg text-base shadow transition-colors"
-            onClick={handleLoginRedirect}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg text-base shadow transition-colors disabled:opacity-60"
+            onClick={handleGoogle}
+            disabled={loading}
           >
-            Iniciar sesión con Google
+            {loading ? 'Cargando...' : 'Iniciar sesión con Google'}
           </button>
-          
-          {error && (
-            <p className="text-red-400 text-center mt-4">{error}</p>
+
+          {errorParam && (
+            <p className="text-red-400 text-center mt-2">Error de autenticación: {errorParam}</p>
           )}
         </div>
       </main>
@@ -125,4 +103,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
