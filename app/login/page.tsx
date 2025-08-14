@@ -13,17 +13,24 @@ export default function LoginPage() {
   // Si ya hay usuario autenticado, redirigir al dashboard
   useEffect(() => {
     if (!loading && user) {
-      const from = searchParams.get('from') || '/dashboard';
-      router.replace(from);
+      const next = searchParams.get('next') || '/dashboard';
+      router.replace(next);
     }
   }, [user, loading, router, searchParams]);
 
   const handleGoogle = async () => {
-    const from = searchParams.get('from') || '/dashboard';
-    await loginWithGoogle(from);
+    const next = searchParams.get('next') || '/dashboard';
+    await loginWithGoogle(next);
   };
 
   const errorParam = searchParams.get('error');
+// Si llega un query param 'from' (por compatibilidad), redirigir a la misma página pero con 'next'
+useEffect(() => {
+  const from = searchParams.get('from');
+  if (from) {
+    router.replace(`/login?next=${encodeURIComponent(from)}`);
+  }
+}, [searchParams, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center relative font-sans">
