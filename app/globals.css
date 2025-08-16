@@ -26,7 +26,6 @@ html, body {
 }
 
 body {
-  background-color: #101014 !important;
   color: hsl(var(--foreground));
   position: relative;
   min-height: 100vh;

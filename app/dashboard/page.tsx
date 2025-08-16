@@ -6,8 +6,9 @@
 // ===========================================================
 
 "use client";
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { Bar, Doughnut } from "react-chartjs-2";
+import ChatWindow from "../components/ChatWindow";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -74,9 +75,36 @@ const doughnutOptions = {
 
 export default function DashboardPage() {
   // Sidebar móvil
-  const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Chat AI
+  const [showChat, setShowChat] = useState(false);
+  const [messages, setMessages] = useState([
+    {
+      id: "1",
+      sender: "assistant",
+      name: "Asistente Preventi Flow",
+      avatarUrl: "/assistant-avatar.png",
+      content: "Hola, Olivia. Estoy listo para ayudar. Puedo analizar informes, generar resúmenes de seguridad o encontrar datos de inspección. ¿Qué necesitas hoy?",
+    },
+    {
+      id: "2",
+      sender: "user",
+      name: "Olivia Martin",
+      avatarUrl: "https://i.pravatar.cc/150?u=a042581f4e29026704d",
+      content: "Genera un resumen de los incidentes de seguridad reportados en la 'Empresa 2' en el último trimestre.",
+    },
+    {
+      id: "3",
+      sender: "assistant",
+      name: "Asistente Preventi Flow",
+      avatarUrl: "/assistant-avatar.png",
+      content: "Claro. Analizando los datos de la 'Empresa 2' para el último trimestre... Un momento.",
+    },
+  ]);
+  const [inputValue, setInputValue] = useState("");
+  const [loading, setLoading] = useState(false);
   // Efecto holo-card
-  const holoRefs = React.useRef<(HTMLDivElement | null)[]>([]);
+  const holoRefs = useRef<(HTMLDivElement | null)[]>([]);
   React.useEffect(() => {
     holoRefs.current.forEach(card => {
       if (!card) return;
@@ -136,10 +164,10 @@ export default function DashboardPage() {
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg>
             <span>Dashboard</span>
           </a>
-          <a href="#" className="flex items-center gap-3 hover:bg-white/5 transition-colors w-full rounded-lg pt-2 pr-4 pb-2 pl-4">
+          <button type="button" onClick={() => { setShowChat(true); setSidebarOpen(false); }} className="flex items-center gap-3 hover:bg-white/5 transition-colors w-full rounded-lg pt-2 pr-4 pb-2 pl-4 focus:outline-none">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>
             <span>Asistente AI</span>
-          </a>
+          </button>
           <a href="#" className="flex items-center gap-3 hover:bg-white/5 transition-colors w-full rounded-lg pt-2 pr-4 pb-2 pl-4">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
             <span>Reports</span>
@@ -188,7 +216,44 @@ export default function DashboardPage() {
             </button>
           </div>
         </header>
-        {/* Tarjetas y gráficos */}
+        {/* Área central: Chat o dashboard */}
+        {showChat ? (
+          <div className="flex flex-col items-center justify-center min-h-[600px] w-full">
+            <button
+              className="self-end mb-4 px-4 py-2 bg-[#ff6a00] text-white rounded-full shadow hover:bg-[#ff8a3b] transition"
+              onClick={() => setShowChat(false)}
+            >
+              Cerrar chat
+            </button>
+            <ChatWindow
+              messages={messages}
+              inputValue={inputValue}
+              onInputChange={setInputValue}
+              onSend={() => {
+                if (!inputValue.trim()) return;
+                setMessages([
+                  ...messages,
+                  {
+                    id: (messages.length + 1).toString(),
+                    sender: "user",
+                    name: "Olivia Martin",
+                    avatarUrl: "https://i.pravatar.cc/150?u=a042581f4e29026704d",
+                    content: inputValue,
+                  },
+                  {
+                    id: (messages.length + 2).toString(),
+                    sender: "assistant",
+                    name: "Asistente Preventi Flow",
+                    avatarUrl: "/assistant-avatar.png",
+                    content: "(Simulación) Estoy procesando tu consulta...",
+                  },
+                ]);
+                setInputValue("");
+              }}
+              loading={loading}
+            />
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Indicadores de desempeño */}
           <div ref={el => { holoRefs.current[0] = el; }} className="holo-card rounded-xl p-6">
@@ -275,6 +340,7 @@ export default function DashboardPage() {
             </table>
           </div>
         </div>
+      )}
       </main>
     </div>
   );

@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { useAuth } from "./context/AuthContext";
 import { useRouter } from "next/navigation";
+import './standalone-dashboard.css';
 
 export default function HomePage() {
   const [view, setView] = useState<'initial'|'login'|'register'>('initial');
@@ -59,7 +60,7 @@ export default function HomePage() {
 
 
   return (
-    <div className="antialiased selection:bg-white/10 selection:text-white text-white bg-neutral-950 min-h-screen flex flex-col" style={{fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto"}}>
+    <div className="antialiased selection:bg-white/10 selection:text-white text-white min-h-screen flex flex-col" style={{fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto"}}>
       {/* Header */}
       <header className="sticky top-0 z-30 backdrop-blur-md bg-neutral-950/70 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-6">
@@ -78,7 +79,7 @@ export default function HomePage() {
         </div>
       </header>
       {/* Hero + Formulario */}
-      <section className="relative overflow-hidden bg-[url(https://hoirqrkdgbmvpwutwuwj.supabase.co/storage/v1/object/public/assets/assets/af0a80bd-7501-40ee-990b-69ed1cfcde25_3840w.jpg)] bg-cover flex-1">
+      <section className="relative overflow-hidden flex-1">
         <div className="absolute -top-32 -left-32 w-[480px] h-[480px] bg-fuchsia-500/10 blur-3xl rounded-full pointer-events-none"></div>
         <div className="absolute -bottom-48 -right-40 w-[520px] h-[520px] bg-indigo-500/10 blur-3xl rounded-full pointer-events-none"></div>
         <div className="max-w-7xl md:py-24 grid grid-cols-1 lg:grid-cols-12 gap-10 mx-auto pt-16 px-6 pb-16">

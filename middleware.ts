@@ -26,13 +26,13 @@ export async function middleware(request: NextRequest) {
   try { console.log('[MW]', debugStr); } catch {}
   res.headers.set('x-debug-auth', debugStr);
 
-  // Si no hay sesión y es dashboard, redirigir a landing
-  if (!session && isDashboard && !isAsset) {
-    const url = new URL('/', request.url);
-    const redirectRes = NextResponse.redirect(url);
-    redirectRes.headers.set('x-debug-auth', debugStr);
-    return redirectRes;
-  }
+  // [DEV ONLY] Protección de autenticación desactivada para pruebas locales.
+  // if (!session && isDashboard && !isAsset) {
+  //   const url = new URL('/', request.url);
+  //   const redirectRes = NextResponse.redirect(url);
+  //   redirectRes.headers.set('x-debug-auth', debugStr);
+  //   return redirectRes;
+  // }
 
   return res;
 }
