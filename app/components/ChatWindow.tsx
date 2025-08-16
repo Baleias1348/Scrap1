@@ -21,7 +21,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ messages, inputValue, on
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   return (
-    <div className="backdrop-blur-xl bg-white/10 border border-[#ff6a00]/30 rounded-2xl p-8 flex flex-col max-w-none w-full mx-auto shadow-2xl" style={{ minHeight: 600, width: "100%" }}>
+    <div className="backdrop-blur-xl bg-white/10 border border-[#ff6a00]/30 rounded-2xl p-8 flex flex-col max-w-none w-full mx-auto shadow-2xl h-[600px] min-h-[400px]" style={{ width: "100%" }}>
       {/* Header estilo Preventi Flow */}
       <div className="flex items-center gap-4 mb-6">
   <div className="bg-[#ff6a00]/90 rounded-full w-16 h-16 flex items-center justify-center">
@@ -33,7 +33,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ messages, inputValue, on
   </div>
 </div>
       {/* Mensajes */}
-      <div className="flex-1 space-y-6 overflow-y-auto pb-2 custom-scrollbar">
+      <div className="flex-1 min-h-0 space-y-6 overflow-y-auto pb-2 custom-scrollbar" style={{maxHeight:'100%'}}>
         {messages.map((msg) => (
           <div key={msg.id} className={`flex items-end gap-3 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
             {msg.sender === "assistant" && (
@@ -69,7 +69,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ messages, inputValue, on
         ))}
       </div>
       {/* Input */}
-      <div className="flex-shrink-0 pt-6">
+      <div className="flex-shrink-0 pt-6 sticky bottom-0 bg-white/10 z-10">
         <div className="relative flex items-center">
           <textarea
             ref={textareaRef}
