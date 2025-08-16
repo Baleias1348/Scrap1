@@ -74,11 +74,29 @@ const doughnutOptions = {
 };
 
 export default function DashboardPage() {
+  // Menú de usuario
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  // Estado para historial de conversaciones
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyList] = useState([
+    { id: 'c1', date: '2025-08-15', title: 'Resumen incidentes Empresa 2' },
+    { id: 'c2', date: '2025-08-12', title: 'Reporte capacitaciones' },
+    { id: 'c3', date: '2025-08-10', title: 'Consulta de empleados' },
+  ]);
+
   // Sidebar móvil
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Chat AI
   const [showChat, setShowChat] = useState(false);
-  const [messages, setMessages] = useState([
+  interface Message {
+  id: string;
+  sender: "user" | "assistant" | "loading";
+  name?: string;
+  avatarUrl?: string;
+  content: string;
+}
+
+const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
       sender: "assistant",
@@ -164,10 +182,20 @@ export default function DashboardPage() {
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg>
             <span>Dashboard</span>
           </a>
-          <button type="button" onClick={() => { setShowChat(true); setSidebarOpen(false); }} className="flex items-center gap-3 hover:bg-white/5 transition-colors w-full rounded-lg pt-2 pr-4 pb-2 pl-4 focus:outline-none">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>
-            <span>Asistente AI</span>
-          </button>
+          <div className="group relative">
+  <button type="button" onClick={() => setShowChat(true)} className="flex items-center gap-3 hover:bg-white/5 transition-colors w-full rounded-lg pt-2 pr-4 pb-2 pl-4 focus:outline-none">
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"></path><path d="M20 2v4"></path><path d="M22 4h-4"></path><circle cx="4" cy="20" r="2"></circle></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>
+    <span>Asistente AI</span>
+    <svg className="w-4 h-4 ml-auto group-hover:rotate-90 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="6" y1="9" x2="18" y2="9"/><line x1="6" y1="15" x2="18" y2="15"/></svg>
+  </button>
+  <div className="absolute left-full top-0 ml-2 w-56 hidden group-hover:block z-10">
+    <div className="rounded-lg p-2 space-y-1 bg-[rgba(15,23,42,0.85)] backdrop-blur-lg border border-[#ff6a00]/20">
+      <button className="w-full text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors" onClick={() => { setShowChat(true); setSidebarOpen(false); setShowHistory(false); }}>Nueva conversación</button>
+      <button className="w-full text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors" onClick={() => { setShowHistory(true); setSidebarOpen(false); }}>Conversaciones anteriores</button>
+    </div>
+  </div>
+</div>
           <a href="#" className="flex items-center gap-3 hover:bg-white/5 transition-colors w-full rounded-lg pt-2 pr-4 pb-2 pl-4">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
             <span>Reports</span>
@@ -205,55 +233,94 @@ export default function DashboardPage() {
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
               <input type="text" placeholder="Search..." className="focus:outline-none focus:ring-2 focus:ring-[#ff6a00]/50 bg-white/5 border-[#ff6a00]/95 border rounded-lg pt-2 pr-4 pb-2 pl-10" />
             </div>
-            <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/5 border border-white/10 transition-colors" title="Assistente IA">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"></path><path d="M20 2v4"></path><path d="M22 4h-4"></path><circle cx="4" cy="20" r="2"></circle></svg>
-            </button>
+            
             <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/5 border border-white/10 transition-colors" title="Notificações">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg>
             </button>
-            <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/5 border border-white/10 transition-colors" title="Logout">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v10"></path><path d="M18.4 6.6a9 9 0 1 1-12.77.04"></path></svg>
-            </button>
+            <div className="relative">
+  <button
+    className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/5 border border-white/10 transition-colors"
+    title="Usuario"
+    onClick={() => setUserMenuOpen((prev) => !prev)}
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M6 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"></path></svg>
+  </button>
+  {userMenuOpen && (
+    <div className="absolute right-0 mt-2 w-48 bg-black/90 border border-[#ff6a00]/30 rounded-lg shadow-lg z-50">
+      <button className="w-full text-left px-4 py-2 hover:bg-white/5 transition-colors" onClick={() => setUserMenuOpen(false)}>Perfil</button>
+      <button className="w-full text-left px-4 py-2 hover:bg-white/5 transition-colors" onClick={() => setUserMenuOpen(false)}>Cuenta</button>
+      <button className="w-full text-left px-4 py-2 hover:bg-white/5 transition-colors" onClick={() => setUserMenuOpen(false)}>Configuración</button>
+      <button className="w-full text-left px-4 py-2 hover:bg-white/5 text-red-400 transition-colors" onClick={() => { setUserMenuOpen(false); /* lógica de logout aquí */ }}>Logout</button>
+    </div>
+  )}
+</div>
           </div>
         </header>
         {/* Área central: Chat o dashboard */}
-        {showChat ? (
-          <div className="flex flex-col items-center justify-center min-h-[600px] w-full">
-            <button
-              className="self-end mb-4 px-4 py-2 bg-[#ff6a00] text-white rounded-full shadow hover:bg-[#ff8a3b] transition"
-              onClick={() => setShowChat(false)}
-            >
-              Cerrar chat
-            </button>
-            <ChatWindow
-              messages={messages}
-              inputValue={inputValue}
-              onInputChange={setInputValue}
-              onSend={() => {
-                if (!inputValue.trim()) return;
-                setMessages([
-                  ...messages,
-                  {
-                    id: (messages.length + 1).toString(),
-                    sender: "user",
-                    name: "Olivia Martin",
-                    avatarUrl: "https://i.pravatar.cc/150?u=a042581f4e29026704d",
-                    content: inputValue,
-                  },
-                  {
-                    id: (messages.length + 2).toString(),
-                    sender: "assistant",
-                    name: "Asistente Preventi Flow",
-                    avatarUrl: "/assistant-avatar.png",
-                    content: "(Simulación) Estoy procesando tu consulta...",
-                  },
-                ]);
-                setInputValue("");
-              }}
-              loading={loading}
-            />
-          </div>
-        ) : (
+        {showHistory ? (
+  <div className="flex flex-col items-center justify-center min-h-[600px] w-full">
+    <h2 className="text-xl font-bold mb-6">Conversaciones anteriores</h2>
+    <ul className="w-full max-w-md space-y-3">
+      {historyList.map(conv => (
+        <li key={conv.id}>
+          <button
+            className="w-full flex justify-between items-center px-4 py-3 rounded-lg bg-white/10 hover:bg-[#ff6a00]/20 border border-white/10 text-left transition"
+            onClick={() => {
+              // Simular carga de contexto
+              setMessages([
+                {
+                  id: '1', sender: 'assistant', name: 'Asistente Preventi Flow', avatarUrl: '/assistant-avatar.png', content: `Cargando contexto: ${conv.title}`
+                }
+              ]);
+              setShowChat(true);
+              setShowHistory(false);
+            }}
+          >
+            <span className="font-semibold">{conv.title}</span>
+            <span className="text-xs text-white/60">{conv.date}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
+    <button className="mt-8 px-4 py-2 bg-[#ff6a00] text-white rounded-full shadow hover:bg-[#ff8a3b] transition" onClick={() => setShowHistory(false)}>Volver</button>
+  </div>
+) : showChat ? (
+  <div className="flex flex-col items-center justify-center min-h-[600px] w-full">
+    <button
+      className="self-end mb-4 px-2 py-1 bg-[#ff6a00] text-white rounded-full shadow hover:bg-[#ff8a3b] transition text-sm"
+      onClick={() => setShowChat(false)}
+    >
+      Cerrar chat
+    </button>
+    <ChatWindow
+      messages={messages}
+      inputValue={inputValue}
+      onInputChange={setInputValue}
+      onSend={() => {
+        if (!inputValue.trim()) return;
+        setMessages([
+          ...messages,
+          {
+            id: (messages.length + 1).toString(),
+            sender: "user",
+            name: "Olivia Martin",
+            avatarUrl: "https://i.pravatar.cc/150?u=a042581f4e29026704d",
+            content: inputValue,
+          },
+          {
+            id: (messages.length + 2).toString(),
+            sender: "assistant",
+            name: "Asistente Preventi Flow",
+            avatarUrl: "/assistant-avatar.png",
+            content: "(Simulación) Estoy procesando tu consulta...",
+          },
+        ]);
+        setInputValue("");
+      }}
+      loading={loading}
+    />
+  </div>
+) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Indicadores de desempeño */}
           <div ref={el => { holoRefs.current[0] = el; }} className="holo-card rounded-xl p-6">

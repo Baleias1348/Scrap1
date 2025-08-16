@@ -1,4 +1,5 @@
-"// Archivo eliminado para evitar conflicto con el nuevo dashboard";
+"use client";
+// Archivo eliminado para evitar conflicto con el nuevo dashboard;
 import React from "react";
 
 // 1. Icon (SVG wrapper)
