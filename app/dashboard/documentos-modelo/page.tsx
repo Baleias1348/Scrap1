@@ -39,14 +39,14 @@ export default function DocumentosModeloDashboard() {
         {loading && <div className="text-gray-500">Cargando documentos...</div>}
         {error && <div className="text-red-600">{error}</div>}
         {!loading && !error && (
-          <table className="w-full bg-white rounded shadow mt-4">
+          <table className="w-full bg-white rounded shadow mt-4" role="table">
             <thead>
               <tr className="bg-blue-100 text-blue-900">
-                <th className="px-4 py-2 text-left">Título</th>
-                <th className="px-4 py-2">Categoría</th>
-                <th className="px-4 py-2">Versión</th>
-                <th className="px-4 py-2">Validado</th>
-                <th className="px-4 py-2">Actualización</th>
+                <th className="px-4 py-2 text-left" scope="col">Título</th>
+                <th className="px-4 py-2" scope="col">Categoría</th>
+                <th className="px-4 py-2" scope="col">Versión</th>
+                <th className="px-4 py-2" scope="col">Validado</th>
+                <th className="px-4 py-2" scope="col">Actualización</th>
               </tr>
             </thead>
             <tbody>

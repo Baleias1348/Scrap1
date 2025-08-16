@@ -7,6 +7,7 @@
 
 "use client";
 import React, { useRef, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Bar, Doughnut } from "react-chartjs-2";
 import ChatWindow from "../components/ChatWindow";
 import {
@@ -177,37 +178,109 @@ const [messages, setMessages] = useState<Message[]>([
           </div>
         </div>
         {/* Menú lateral */}
-        <nav className="flex flex-col gap-2">
-          <a href="#" className="flex items-center gap-3 px-4 py-2 rounded-lg bg-[#ff6a00]/20 text-[#ff6a00] border border-[#ff6a00]/50 font-semibold">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg>
-            <span>Dashboard</span>
-          </a>
-          <div className="group relative">
-  <button type="button" onClick={() => setShowChat(true)} className="flex items-center gap-3 hover:bg-white/5 transition-colors w-full rounded-lg pt-2 pr-4 pb-2 pl-4 focus:outline-none">
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"></path><path d="M20 2v4"></path><path d="M22 4h-4"></path><circle cx="4" cy="20" r="2"></circle></svg>
-    <span>Asistente AI</span>
-    <svg className="w-4 h-4 ml-auto group-hover:rotate-90 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="6" y1="9" x2="18" y2="9"/><line x1="6" y1="15" x2="18" y2="15"/></svg>
-  </button>
-  <div className="absolute left-full top-0 ml-2 w-56 hidden group-hover:block z-10">
-    <div className="rounded-lg p-2 space-y-1 bg-[rgba(15,23,42,0.85)] backdrop-blur-lg border border-[#ff6a00]/20">
-      <button className="w-full text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors" onClick={() => { setShowChat(true); setSidebarOpen(false); setShowHistory(false); }}>Nueva conversación</button>
-      <button className="w-full text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors" onClick={() => { setShowHistory(true); setSidebarOpen(false); }}>Conversaciones anteriores</button>
-    </div>
-  </div>
-</div>
-          <a href="#" className="flex items-center gap-3 hover:bg-white/5 transition-colors w-full rounded-lg pt-2 pr-4 pb-2 pl-4">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
-            <span>Reports</span>
-          </a>
-          <a href="#" className="flex items-center gap-3 hover:bg-white/5 transition-colors w-full rounded-lg pt-2 pr-4 pb-2 pl-4">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></svg>
-            <span>Empleados</span>
-          </a>
-          <a href="#" className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-white/5 transition-colors w-full">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"></path><circle cx="12" cy="12" r="3"></circle></svg>
-            <span>Settings</span>
-          </a>
-        </nav>
+        {(() => {
+          // Definir los ítems del menú
+          const menuItems = [
+            {
+              label: "Dashboard",
+              href: "/dashboard",
+              icon: (
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg>
+              ),
+            },
+            // El botón Asistente AI no es un link, sino un botón con submenú
+            {
+              label: "Asistente AI",
+              isAIButton: true,
+              icon: (
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"></path><path d="M20 2v4"></path><path d="M22 4h-4"></path><circle cx="4" cy="20" r="2"></circle></svg>
+              ),
+            },
+            {
+              label: "Reports",
+              href: "/dashboard/reports",
+              icon: (
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
+              ),
+            },
+            {
+              label: "Empleados",
+              href: "/dashboard/empleados",
+              icon: (
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></svg>
+              ),
+            },
+            {
+              label: "Settings",
+              href: "/dashboard/settings",
+              icon: (
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              ),
+            },
+          ];
+          const pathname = usePathname();
+          const [hovered, setHovered] = useState<number|null>(null);
+          // Determinar el activo por ruta
+          const activeIdx = menuItems.findIndex(item => pathname?.startsWith(item.href));
+          return (
+            <nav className="flex flex-col gap-2 relative">
+              {/* Indicador naranja translúcido animado */}
+              <div
+                className="absolute left-0 w-full h-11 pointer-events-none transition-all duration-300"
+                style={{
+                  top: `${(hovered !== null ? hovered : activeIdx) * 48}px`,
+                  opacity: hovered !== null || activeIdx !== -1 ? 1 : 0,
+                  zIndex: 0,
+                }}
+              >
+                <div className="mx-0.5 h-10 rounded-lg bg-[#ff6a00]/20 border border-[#ff6a00]/50 transition-all duration-300" />
+              </div>
+              {menuItems.map((item, idx) => (
+                item.isAIButton ? (
+                  <div
+                    key={item.label}
+                    className="group relative"
+                    onMouseEnter={() => setHovered(idx)}
+                    onMouseLeave={() => setHovered(null)}
+                  >
+                    <button
+                      type="button"
+                      className={`flex items-center gap-3 w-full rounded-lg pt-2 pr-4 pb-2 pl-4 font-semibold relative z-10 transition-colors duration-200 focus:outline-none ${
+                        (hovered === idx || activeIdx === idx) ? "text-[#ff6a00]" : "text-white/80 hover:text-[#ff6a00]"
+                      }`}
+                      aria-current={activeIdx === idx ? "page" : undefined}
+                    >
+                      {item.icon}
+                      <span>{item.label}</span>
+                      <svg className="w-4 h-4 ml-auto group-hover:rotate-90 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="6" y1="9" x2="18" y2="9"/><line x1="6" y1="15" x2="18" y2="15"/></svg>
+                    </button>
+                    <div className="absolute left-full top-0 ml-2 w-56 hidden group-hover:block z-10">
+                      <div className="rounded-lg p-2 space-y-1 bg-[rgba(15,23,42,0.85)] backdrop-blur-lg border border-[#ff6a00]/20">
+                        <button className="w-full text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors" onClick={() => { setShowChat(true); setSidebarOpen(false); setShowHistory(false); }}>Nueva conversación</button>
+                        <button className="w-full text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors" onClick={() => { setShowHistory(true); setSidebarOpen(false); }}>Conversaciones anteriores</button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    className={`flex items-center gap-3 px-4 py-2 rounded-lg font-semibold relative z-10 transition-colors duration-200 ${
+                      (hovered === idx || activeIdx === idx) ? "text-[#ff6a00]" : "text-white/80 hover:text-[#ff6a00]"
+                    }`}
+                    onMouseEnter={() => setHovered(idx)}
+                    onMouseLeave={() => setHovered(null)}
+                    aria-current={activeIdx === idx ? "page" : undefined}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </a>
+                )
+              ))}
+            </nav>
+          );
+        })()}
+
         <div className="mt-auto" />
       </aside>
       {/* Contenido principal */}
