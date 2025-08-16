@@ -185,7 +185,6 @@ const [messages, setMessages] = useState<Message[]>([
           <div className="group relative">
   <button type="button" onClick={() => setShowChat(true)} className="flex items-center gap-3 hover:bg-white/5 transition-colors w-full rounded-lg pt-2 pr-4 pb-2 pl-4 focus:outline-none">
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"></path><path d="M20 2v4"></path><path d="M22 4h-4"></path><circle cx="4" cy="20" r="2"></circle></svg>
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>
     <span>Asistente AI</span>
     <svg className="w-4 h-4 ml-auto group-hover:rotate-90 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="6" y1="9" x2="18" y2="9"/><line x1="6" y1="15" x2="18" y2="15"/></svg>
   </button>
@@ -247,10 +246,22 @@ const [messages, setMessages] = useState<Message[]>([
   </button>
   {userMenuOpen && (
     <div className="absolute right-0 mt-2 w-48 bg-black/90 border border-[#ff6a00]/30 rounded-lg shadow-lg z-50">
-      <button className="w-full text-left px-4 py-2 hover:bg-white/5 transition-colors" onClick={() => setUserMenuOpen(false)}>Perfil</button>
-      <button className="w-full text-left px-4 py-2 hover:bg-white/5 transition-colors" onClick={() => setUserMenuOpen(false)}>Cuenta</button>
-      <button className="w-full text-left px-4 py-2 hover:bg-white/5 transition-colors" onClick={() => setUserMenuOpen(false)}>Configuración</button>
-      <button className="w-full text-left px-4 py-2 hover:bg-white/5 text-red-400 transition-colors" onClick={() => { setUserMenuOpen(false); /* lógica de logout aquí */ }}>Logout</button>
+      <button className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-white/5 transition-colors" onClick={() => setUserMenuOpen(false)}>
+  <svg className="w-4 h-4 text-[#ff6a00]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>
+  Perfil
+</button>
+<button className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-white/5 transition-colors" onClick={() => setUserMenuOpen(false)}>
+  <svg className="w-4 h-4 text-[#ffae00]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M16 3v4a4 4 0 0 1-8 0V3"/></svg>
+  Cuenta
+</button>
+<button className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-white/5 transition-colors" onClick={() => setUserMenuOpen(false)}>
+  <svg className="w-4 h-4 text-[#68d391]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 8a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 16 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 8c.13.16.24.33.33.51"/></svg>
+  Configuración
+</button>
+<button className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-white/5 text-red-400 transition-colors" onClick={() => { setUserMenuOpen(false); /* lógica de logout aquí */ }}>
+  <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+  Logout
+</button>
     </div>
   )}
 </div>
@@ -287,7 +298,8 @@ const [messages, setMessages] = useState<Message[]>([
 ) : showChat ? (
   <div className="flex flex-col items-center justify-center min-h-[600px] w-full">
     <button
-      className="self-end mb-4 px-2 py-1 bg-[#ff6a00] text-white rounded-full shadow hover:bg-[#ff8a3b] transition text-sm"
+      className="self-end mb-4 px-1 py-0.5 bg-[#ff6a00] text-white rounded-lg shadow hover:bg-[#ff8a3b] transition text-xs"
+      style={{ transform: 'scale(0.5)' }}
       onClick={() => setShowChat(false)}
     >
       Cerrar chat

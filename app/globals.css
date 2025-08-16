@@ -2,6 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Scrollbar discreta y fina */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120,120,120,0.18) rgba(40,40,40,0.08);
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(120,120,120,0.18);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(120,120,120,0.28);
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 :root {
   --background: 0 0% 100%;
   --foreground: 222.2 84% 4.9%;
