@@ -1,11 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  experimental: {
-    // Habilitar middleware
-    middleware: true,
-    // typedRoutes: true
-  },
+  // experimental: {
+  //   // Habilitar middleware
+  //   middleware: true,
+  //   // typedRoutes: true
+  // },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },

@@ -41,14 +41,13 @@
  * $$;
  */
 
-// Importar helper CommonJS correctamente en TypeScript/ESM
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const setupVertexCredentials = require('../../../../utils/setupVertexCredentials');
+import { setupVertexCredentials } from '../../utils/setupVertexCredentials';
 setupVertexCredentials();
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenAI } from '@google/genai';
+// @ts-ignore
+import { getVertexEmbedding } from '../../utils/vertexEmbed';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_KEY = process.env.SUPABASE_KEY!;
@@ -56,14 +55,8 @@ const VECTOR_SIZE = 768;
 const SIMILARITY_THRESHOLD = 0.75;
 const MATCH_COUNT = 5;
 
-// Inicializar cliente GoogleGenAI para Vertex AI
 const GOOGLE_CLOUD_PROJECT = process.env.GOOGLE_CLOUD_PROJECT || 'gen-lang-client-0764731811';
 const GOOGLE_CLOUD_LOCATION = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
-const genAI = new GoogleGenAI({
-  vertexai: true,
-  project: GOOGLE_CLOUD_PROJECT,
-  location: GOOGLE_CLOUD_LOCATION,
-});
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
@@ -114,16 +107,11 @@ export async function POST(req: NextRequest) {
     // --- Embeddings: usar SOLO Gemini 2.5 Pro ---
     let questionEmbedding;
     try {
-      console.log('[API/ASK] Solicitando embedding a Gemini (Vertex AI)...');
-      const embeddingResp = await genAI.embeddings.embed({
-        model: 'embedding-001',
-        content: question,
-        taskType: 'RETRIEVAL_QUERY',
-      });
-      questionEmbedding = embeddingResp.embedding.values;
-      console.log('[API/ASK] Embedding generado con Gemini:', questionEmbedding.length);
+      console.log('[API/ASK] Solicitando embedding a Vertex AI vía REST...');
+      questionEmbedding = await getVertexEmbedding(question, GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION);
+      console.log('[API/ASK] Embedding generado con Vertex AI:', questionEmbedding.length);
     } catch (error: any) {
-      return NextResponse.json({ error: 'No se pudo generar el embedding de la pregunta con Gemini.', details: error?.message || error?.toString() }, { status: 500 });
+      return NextResponse.json({ error: 'No se pudo generar el embedding de la pregunta con Vertex AI.', details: error?.message || error?.toString() }, { status: 500 });
     }
     if (!questionEmbedding || questionEmbedding.length !== VECTOR_SIZE) {
       return NextResponse.json({ error: 'No se pudo generar el embedding de la pregunta.', details: questionEmbedding }, { status: 500 });
@@ -167,11 +155,23 @@ export async function POST(req: NextRequest) {
     // Usar SOLO Gemini 2.5 Pro para generación
     try {
       console.log('[API/ASK] Llamando a Gemini 2.5 Pro (Vertex AI)...');
+      // Instanciar GoogleGenAI localmente para evitar errores de referencia
+      const { GoogleGenAI } = await import('@google/genai');
+      const genAI = new GoogleGenAI({
+        vertexai: true,
+        project: GOOGLE_CLOUD_PROJECT,
+        location: GOOGLE_CLOUD_LOCATION,
+      });
       const response = await genAI.models.generateContent({
         model: 'gemini-2.5-pro',
         contents: prompt,
       });
-      answer = typeof response.text === 'string' ? response.text.trim() : '';
+      let respuestaTexto = '';
+      // Extraer texto generado de la respuesta (Vertex AI)
+      if (response && response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {
+        respuestaTexto = response.candidates[0].content.parts[0].text.trim();
+      }
+      answer = respuestaTexto;
       modelUsed = 'gemini-2.5-pro';
       console.log('[API/ASK] Respuesta recibida de Gemini 2.5 Pro:', answer);
     } catch (error: any) {
