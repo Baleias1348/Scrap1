@@ -27,3 +27,6 @@ build/
 # Otros
 *.pyc
 __pycache__/
+
+# Credenciales y secretos
+secrets/

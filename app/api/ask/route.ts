@@ -41,62 +41,49 @@
  * $$;
  */
 
+// Importar helper CommonJS correctamente en TypeScript/ESM
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const setupVertexCredentials = require('../../../../utils/setupVertexCredentials');
+setupVertexCredentials();
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenerativeAI, TaskType } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
-// Inicializar cliente de Google Generative AI solo si la clave está disponible
-let genAI: GoogleGenerativeAI | null = null;
-if (process.env.GOOGLE_API_KEY) {
-  genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-} else {
-  console.error('[API/ASK] No se encontró GOOGLE_API_KEY en el entorno.');
-}
-
-// --- CONFIGURACIÓN ---
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_KEY = process.env.SUPABASE_KEY!;
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY!;
 const VECTOR_SIZE = 768;
 const SIMILARITY_THRESHOLD = 0.75;
 const MATCH_COUNT = 5;
 
-// Setting de Interacción Inicial y Constitución del agente
-const AGENT_INTERACTION_SETTING = `Hola soy la agente Ai de Preventi Flow, estoy aquí para ayudarte.
+// Inicializar cliente GoogleGenAI para Vertex AI
+const GOOGLE_CLOUD_PROJECT = process.env.GOOGLE_CLOUD_PROJECT || 'gen-lang-client-0764731811';
+const GOOGLE_CLOUD_LOCATION = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
+const genAI = new GoogleGenAI({
+  vertexai: true,
+  project: GOOGLE_CLOUD_PROJECT,
+  location: GOOGLE_CLOUD_LOCATION,
+});
 
-¿Hay algo en específico en lo que quieras trabajar? Por ejemplo, ¿necesitas un modelo de procedimiento, un protocolo de seguridad, o quizás información sobre alguna normativa general?
-
-Si luego de la interacción hay una pregunta o petición real:
-(Incoporar alguna expresión de aceptación como Claro!, “Con mucho gusto”, Por supuesto, Etc) te ayudaré en XXX… buscaré para ti XXX (lo que sea que haya pedido el usuario).
-
-Si en las interacciones anteriores el usuario no hubiese entregado información respecto a datos de su organización, complementar con:
-“Si me cuentas brevemente algunas cosas respecto a tu organización, como el rubro, la región y la cantidad de trabajadores, podré ayudarte de manera mucho más enfocada. O si prefieres, puedo darte respuestas aplicables a todo tipo de empresas y organizaciones.”
-
-Los datos relevantes deben ser marcados como palabras clave y recordados para futuras interacciones con el usuario.`;
-
-const AGENT_CONSTITUTION = AGENT_INTERACTION_SETTING + `\n\nMi nombre es María José Gibson, Chief Safety, Compliance & Operations Officer (CSCO) con más de 15 años de experiencia en prevención de riesgos, cumplimiento legal, gestión de emergencias y liderazgo operativo en Chile y Latinoamérica. Soy experta en traducir la normativa legal en soluciones prácticas y estratégicas para empresas de todos los rubros, especialmente construcción, minería, industria y salud.
-
-Respondo de forma clara, proactiva y estratégica, integrando:
-- Legislación laboral y de seguridad chilena (Ley 16.744, DS N° 44, DS N° 594, Código del Trabajo, normas sectoriales).
-- Prácticas y soluciones cotidianas de terreno y oficina.
-- Estrategias para mejorar la cultura preventiva y la gestión de riesgos.
-- Protocolos y documentos modelo para prevención, emergencias y cumplimiento.
-- Sugerencias de mejora continua, liderazgo y formación de equipos.
-- Coordinación efectiva con autoridades fiscalizadoras, organismos sectoriales y coordinadoras de emergencias (como Sernageomin, Seremi, mutualidades, ONEMI/SENAPRED, etc).
-
-Cuando el usuario solicite un documento:
-- Antes de mostrar el documento, inicia la respuesta con una frase cálida y profesional, mostrando disposición, experiencia y acompañamiento. Ejemplo: "¡Por supuesto! Ahora elaboraré para ti el modelo solicitado, tomando en cuenta nuestra experiencia y la normativa vigente (Ley XX, DS XX, etc). Si tienes dudas o necesitas personalizaciones, dime y te ayudo a ajustarlo.".
-- Entrega siempre un modelo completo y profesional en formato Markdown enriquecido (usa títulos, subtítulos, listas, tablas, negritas, cursivas, etc).
-- Incluye campos editables como [NOMBRE_EMPRESA], [RUT], [FECHA], etc.
-- Utiliza tablas para organizar listados de EPP, sanciones, anexos, responsabilidades, etc. Siempre que puedas, prefiere tablas sobre listas simples.
-- Da ejemplos concretos y prácticos en cada sección relevante (por ejemplo, ejemplos de cláusulas, de uso de EPP, de procedimientos, etc).
-- Separa claramente el documento principal de los anexos y del “paquete completo” de documentos relacionados. Usa encabezados claros como "Anexos" o "Documentos Complementarios".
-- Usa un tono natural, profesional y cercano, como el de un consultor senior, evitando frases robóticas o excesivamente formales.
-- Incluye siempre un breve disclaimer recomendando la revisión final por parte de un experto humano.
-- Si el usuario lo pide, elabora los documentos listos para descargar o personalizar en Word o PDF.
-- Al inicio del documento, incluye una breve instrucción: "Complete los campos marcados entre [ ] antes de imprimir o enviar este documento".
-- Al final de cada respuesta, incluye SIEMPRE un cierre proactivo y consultivo, ofreciendo ayuda concreta para crear documentos relacionados, anexos, matrices de riesgos, protocolos, planes de emergencia, o cualquier otro documento complementario que pueda ser útil en el contexto del usuario. Por ejemplo: "Si necesitas adaptar este documento, crear anexos, protocolos, matrices de riesgos, planes de emergencia o cualquier otro documento relacionado, solo dime y estaré encantada de ayudarte a elaborarlo. ¿Te gustaría que te ayude con algún anexo, procedimiento o documento adicional?".
-`;
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Timeout alcanzado en llamada a Gemini')), ms))
+  ]);
+}
+// Obtener constitución dinámica
+async function obtenerConstitucionAgente(supabase: any, nombreAgente: string): Promise<string> {
+  const { data, error } = await supabase
+    .from('constituciones_agente')
+    .select('constitucion')
+    .eq('nombre_agente', nombreAgente)
+    .order('fecha_actualizacion', { ascending: false })
+    .limit(1);
+  if (error || !data || data.length === 0) {
+    throw new Error('No se encontró la constitución del agente en la base de datos.');
+  }
+  return data[0].constitucion;
+}
 
 export async function POST(req: NextRequest) {
   console.log('--- [API/ASK] Nueva consulta recibida ---');
@@ -116,17 +103,22 @@ export async function POST(req: NextRequest) {
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
     console.log('[API/ASK] Cliente Supabase creado');
 
+    // Obtener constitución dinámica
+    let constitucionAgente = '';
+    try {
+      constitucionAgente = await obtenerConstitucionAgente(supabase, 'A.R.I.A.');
+    } catch (e: any) {
+      return NextResponse.json({ error: e.message || 'No se pudo obtener la constitución del agente.' }, { status: 500 });
+    }
+
     // --- Embeddings: usar SOLO Gemini 2.5 Pro ---
     let questionEmbedding;
-    if (!genAI) {
-      return NextResponse.json({ error: 'No hay clave de Google Generative AI (Gemini) configurada.' }, { status: 500 });
-    }
     try {
-      console.log('[API/ASK] Solicitando embedding a Gemini 2.5 Pro...');
-      const embeddingModel = genAI.getGenerativeModel({ model: 'models/embedding-001' });
-      const embeddingResp = await embeddingModel.embedContent({
-        content: { role: 'user', parts: [{ text: question }] },
-        taskType: TaskType.RETRIEVAL_QUERY,
+      console.log('[API/ASK] Solicitando embedding a Gemini (Vertex AI)...');
+      const embeddingResp = await genAI.embeddings.embed({
+        model: 'embedding-001',
+        content: question,
+        taskType: 'RETRIEVAL_QUERY',
       });
       questionEmbedding = embeddingResp.embedding.values;
       console.log('[API/ASK] Embedding generado con Gemini:', questionEmbedding.length);
@@ -163,38 +155,28 @@ export async function POST(req: NextRequest) {
         `Código Económico #${idx+1}: ${c.codigo}\nDescripción: ${c.descripcion}\nCategoría Tributaria: ${c.categoria_tributaria}\nAfecto IVA: ${c.afecto_iva}\nDisponible Internet: ${c.disponible_internet}`
       ).join('\n\n');
     }
-    let prompt = '';
-    // --- Construcción de prompt ---
-    if (matches && matches.length > 0) {
-      console.log('[API/ASK] Construyendo prompt con contexto legal y económico...');
-      contexto = matches.map((m: any, idx: number) => `Fuente #${idx+1} (${m.nombre_norma}):\n${m.texto_limpio}`).join('\n\n');
-      sources = matches.map((m: any) => m.nombre_norma);
-      prompt = `CONSTITUCIÓN DEL AGENTE:\n${AGENT_CONSTITUTION}\n\nCONTEXTO LEGAL RELEVANTE:\n${contexto}\n\nCONTEXTO ECONÓMICO RELEVANTE (Códigos SII):\n${contextoEconomico}\n\nPREGUNTA DEL USUARIO:\n${question}\n\nINSTRUCCIÓN: Si la respuesta está en el contexto, úsalo y cita las fuentes. Si el contexto no contiene la respuesta, responde igualmente usando tu conocimiento general y aclara explícitamente al usuario que la información proviene de tu entrenamiento y no de fuentes legales consultadas.`;
-    } else {
-      prompt = `CONSTITUCIÓN DEL AGENTE:\n${AGENT_CONSTITUTION}\n\nCONTEXTO ECONÓMICO RELEVANTE (Códigos SII):\n${contextoEconomico}\n\nPREGUNTA DEL USUARIO:\n${question}\n\nINSTRUCCIÓN: No se encontró información relevante en la base legal. Responde usando tu conocimiento general y aclara explícitamente al usuario que la información proviene de tu entrenamiento y no de fuentes legales consultadas.`;
-    }
-
+    let prompt = question; // Solo la pregunta, sin constitución ni contexto
+    console.log('[API/ASK] Prompt enviado a Gemini:', prompt);
 
     let answer = '';
     let modelUsed = '';
     let inputTokens = null;
     let outputTokens = null;
     let estimatedCost = null;
-    
+
     // Usar SOLO Gemini 2.5 Pro para generación
-    if (!genAI) {
-      throw new Error('No hay clave de Google Generative AI (Gemini) configurada.');
-    }
     try {
-      console.log('[API/ASK] Llamando a Gemini 2.5 Pro...');
-      const llmModel = genAI.getGenerativeModel({ model: 'models/gemini-2.5-pro-latest' });
-      const llmResp = await llmModel.generateContent(prompt);
-      answer = llmResp.response.text().trim();
-      modelUsed = 'gemini-2.5-pro-latest';
+      console.log('[API/ASK] Llamando a Gemini 2.5 Pro (Vertex AI)...');
+      const response = await genAI.models.generateContent({
+        model: 'gemini-2.5-pro',
+        contents: prompt,
+      });
+      answer = typeof response.text === 'string' ? response.text.trim() : '';
+      modelUsed = 'gemini-2.5-pro';
       console.log('[API/ASK] Respuesta recibida de Gemini 2.5 Pro:', answer);
-    } catch (error) {
-      console.error('[API/ASK] Error al usar Gemini 2.5 Pro:', error);
-      throw new Error('No se pudo generar una respuesta con Gemini 2.5 Pro. Por favor, inténtalo de nuevo.');
+    } catch (error: any) {
+      console.error('[API/ASK] Error al usar Gemini 2.5 Pro:', error, error?.response?.data || error?.message || error);
+      return NextResponse.json({ error: 'No se pudo generar una respuesta con Gemini 2.5 Pro.', details: error?.response?.data || error?.message || error?.toString() }, { status: 500 });
     }
 
     // Logging de interacción en Supabase

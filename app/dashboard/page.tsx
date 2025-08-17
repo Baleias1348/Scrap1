@@ -221,7 +221,7 @@ const [messages, setMessages] = useState<Message[]>([
           const pathname = usePathname();
           const [hovered, setHovered] = useState<number|null>(null);
           // Determinar el activo por ruta
-          const activeIdx = menuItems.findIndex(item => pathname?.startsWith(item.href));
+          const activeIdx = menuItems.findIndex(item => (pathname ?? '').startsWith(item.href));
           return (
             <nav className="flex flex-col gap-2 relative">
               {/* Indicador naranja translúcido animado */}
