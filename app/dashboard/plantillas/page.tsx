@@ -142,24 +142,24 @@ export default function PlantillasPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-6 text-black">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
-            <h1 className="text-2xl font-bold mb-2 text-blue-900">📁 Plantillas y Buenas Prácticas</h1>
+            <h1 className="text-2xl font-bold mb-2 text-black">📁 Plantillas y Buenas Prácticas</h1>
             <div className="mb-2">{breadcrumb}</div>
-            <p className="text-gray-700">Navega las carpetas y previsualiza archivos. Puedes personalizar con AI o copiar a tus carpetas.</p>
+            <p className="text-black">Navega las carpetas y previsualiza archivos. Puedes personalizar con AI o copiar a tus carpetas.</p>
           </div>
           <a href="/dashboard/documentos-modelo" className="px-3 py-2 bg-white border rounded hover:bg-blue-50 text-blue-700">Documentos Modelo →</a>
         </div>
 
-        {loading && <div className="text-gray-500">Cargando...</div>}
+        {loading && <div className="text-black">Cargando...</div>}
         {error && <div className="text-red-600">{error}</div>}
 
         {!loading && !error && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-1 bg-white rounded shadow p-3">
-              <h2 className="font-semibold text-blue-900 mb-2">Carpetas</h2>
+              <h2 className="font-semibold text-black mb-2">Carpetas</h2>
               <ul className="space-y-1">
                 {folders.map((f) => (
                   <li key={f.path}>
@@ -172,7 +172,7 @@ export default function PlantillasPage() {
               </ul>
             </div>
             <div className="md:col-span-1 bg-white rounded shadow p-3">
-              <h2 className="font-semibold text-blue-900 mb-2">Archivos</h2>
+              <h2 className="font-semibold text-black mb-2">Archivos</h2>
               <ul className="space-y-1">
                 {files.map((fi) => (
                   <li key={fi.path} className="flex items-center justify-between gap-2">
@@ -190,11 +190,11 @@ export default function PlantillasPage() {
               </ul>
             </div>
             <div className="md:col-span-1 bg-white rounded shadow p-3">
-              <h2 className="font-semibold text-blue-900 mb-2">Previsualización</h2>
+              <h2 className="font-semibold text-black mb-2">Previsualización</h2>
               {signedUrl ? (
                 <iframe src={signedUrl} className="w-full h-96 border rounded" />
               ) : (
-                <div className="text-gray-500">Selecciona un archivo para previsualizar</div>
+                <div className="text-black">Selecciona un archivo para previsualizar</div>
               )}
             </div>
           </div>
@@ -202,7 +202,7 @@ export default function PlantillasPage() {
 
         {/* Modal: Personalizar con AI */}
         <Modal open={openAIModal} onClose={() => setOpenAIModal(false)} title="Personalizar con AI">
-          <div className="space-y-3">
+          <div className="space-y-3 text-black">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
               <label className="text-sm">
                 Rubro
@@ -240,7 +240,7 @@ export default function PlantillasPage() {
 
             {aiText && (
               <div>
-                <h4 className="font-semibold text-sm text-blue-900 mb-1">Resultado</h4>
+                <h4 className="font-semibold text-sm text-black mb-1">Resultado</h4>
                 <textarea className="w-full h-56 border rounded px-2 py-1 text-sm" value={aiText} readOnly />
               </div>
             )}
@@ -249,7 +249,7 @@ export default function PlantillasPage() {
 
         {/* Modal: Guardar en mi empresa */}
         <Modal open={openSaveModal} onClose={() => setOpenSaveModal(false)} title="Guardar en mi empresa">
-          <div className="space-y-3">
+          <div className="space-y-3 text-black">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
               <label className="text-sm">
                 ID Trabajador

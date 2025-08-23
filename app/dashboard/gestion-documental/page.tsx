@@ -191,17 +191,17 @@ export default function GestionDocumentalPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 p-8 text-black">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
-            <h1 className="text-2xl font-bold mb-2 text-blue-900">📁 Gestión Documental</h1>
-            <p className="text-gray-700">Explora y gestiona los documentos de tu organización por categorías. Usa el selector para cambiar de raíz.</p>
+            <h1 className="text-2xl font-bold mb-2 text-black">📁 Gestión Documental</h1>
+            <p className="text-black">Explora y gestiona los documentos de tu organización por categorías. Usa el selector para cambiar de raíz.</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-sm text-gray-600">Raíz:</span>
+          <span className="text-sm text-black">Raíz:</span>
           <select className="border rounded px-2 py-1" value={path} onChange={(e) => loadTree(e.target.value)}>
             {roots.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>
@@ -265,7 +265,7 @@ export default function GestionDocumentalPage() {
               ) : (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <h2 className="font-semibold text-blue-900 mb-2">Carpetas</h2>
+                    <h2 className="font-semibold text-black mb-2">Carpetas</h2>
                     <ul className="space-y-1">
                       {folders.map((fo) => (
                         <li key={fo.path}>
@@ -278,7 +278,7 @@ export default function GestionDocumentalPage() {
                     </ul>
                   </div>
                   <div>
-                    <h2 className="font-semibold text-blue-900 mb-2">Archivos</h2>
+                    <h2 className="font-semibold text-black mb-2">Archivos</h2>
                     <ul className="space-y-1">
                       {files.map((fi) => (
                         <li key={fi.path} className="flex items-center justify-between gap-2">
@@ -297,7 +297,7 @@ export default function GestionDocumentalPage() {
               )}
             </div>
             <div className="md:col-span-1 bg-white rounded shadow p-3">
-              <h2 className="font-semibold text-blue-900 mb-2">Previsualización</h2>
+              <h2 className="font-semibold text-black mb-2">Previsualización</h2>
               {signedUrl ? (
                 <iframe src={signedUrl} className="w-full h-96 border rounded" />
               ) : (
