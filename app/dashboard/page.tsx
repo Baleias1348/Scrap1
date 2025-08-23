@@ -10,6 +10,7 @@ import React, { useRef, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Bar, Doughnut } from "react-chartjs-2";
 import ChatWindow from "../components/ChatWindow";
+import Documentacion from "../components/Documentacion";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -89,6 +90,8 @@ export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Chat AI
   const [showChat, setShowChat] = useState(false);
+  // Documentación (vista de tarjetas)
+  const [showDocumentacion, setShowDocumentacion] = useState(false);
   interface Message {
   id: string;
   sender: "user" | "assistant" | "loading";
@@ -213,6 +216,7 @@ const [messages, setMessages] = useState<Message[]>([
             {
               label: "Gestión Documental",
               href: "/dashboard/gestion-documental",
+              hasSubmenu: true,
               icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 5a2 2 0 0 1 2-2h8l6 6v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"></path><path d="M13 3v5a2 2 0 0 0 2 2h5"></path></svg>
               ),
@@ -275,6 +279,42 @@ const [messages, setMessages] = useState<Message[]>([
                       </div>
                     </div>
                   </div>
+                ) : item.hasSubmenu ? (
+                  <div
+                    key={item.label}
+                    className="group relative"
+                    onMouseEnter={() => setHovered(idx)}
+                    onMouseLeave={() => setHovered(null)}
+                  >
+                    <button
+                      type="button"
+                      className={`flex items-center gap-3 w-full rounded-lg pt-2 pr-4 pb-2 pl-4 font-semibold relative z-10 transition-colors duration-200 focus:outline-none ${
+                        (hovered === idx || activeIdx === idx) ? "text-[#ff6a00]" : "text-white/80 hover:text-[#ff6a00]"
+                      }`}
+                      aria-current={activeIdx === idx ? "page" : undefined}
+                    >
+                      {item.icon}
+                      <span>{item.label}</span>
+                      <svg className="w-4 h-4 ml-auto group-hover:rotate-90 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="6" y1="9" x2="18" y2="9"/><line x1="6" y1="15" x2="18" y2="15"/></svg>
+                    </button>
+                    <div className="absolute left-full top-0 ml-2 w-64 hidden group-hover:block z-10">
+                      <div className="rounded-lg p-2 space-y-1 bg-[rgba(15,23,42,0.85)] backdrop-blur-lg border border-[#ff6a00]/20">
+                        <a
+                          href="/dashboard/gestion-documental"
+                          className="w-full inline-block text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors"
+                          onClick={() => { setShowDocumentacion(false); setSidebarOpen(false); }}
+                        >
+                          Ir a Gestión Documental
+                        </a>
+                        <button
+                          className="w-full text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors"
+                          onClick={() => { setShowDocumentacion(true); setShowChat(false); setShowHistory(false); setSidebarOpen(false); }}
+                        >
+                          Documentación
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   <a
                     key={item.label}
@@ -284,6 +324,7 @@ const [messages, setMessages] = useState<Message[]>([
                     }`}
                     onMouseEnter={() => setHovered(idx)}
                     onMouseLeave={() => setHovered(null)}
+                    onClick={() => { setShowDocumentacion(false); }}
                     aria-current={activeIdx === idx ? "page" : undefined}
                   >
                     {item.icon}
@@ -354,7 +395,7 @@ const [messages, setMessages] = useState<Message[]>([
 </div>
           </div>
         </header>
-        {/* Área central: Chat o dashboard */}
+        {/* Área central: Chat, documentación o dashboard */}
         {showHistory ? (
   <div className="flex flex-col items-center justify-center min-h-[600px] w-full">
     <h2 className="text-xl font-bold mb-6">Conversaciones anteriores</h2>
@@ -419,7 +460,11 @@ const [messages, setMessages] = useState<Message[]>([
       loading={loading}
     />
   </div>
-) : (
+) : showDocumentacion ? (
+          <div className="min-h-[600px] w-full">
+            <Documentacion />
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Indicadores de desempeño */}
           <div ref={el => { holoRefs.current[0] = el; }} className="holo-card rounded-xl p-6">
