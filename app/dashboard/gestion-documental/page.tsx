@@ -12,6 +12,10 @@ export default function GestionDocumentalPage() {
   const [signedUrl, setSignedUrl] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string| null>(null);
+  const [bootLoading, setBootLoading] = useState<boolean>(false);
+  const [bootMsg, setBootMsg] = useState<string| null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [selected, setSelected] = useState<string | null>(null);
 
   const loadTree = async (p: string) => {
     setLoading(true); setError(null);
@@ -38,6 +42,21 @@ export default function GestionDocumentalPage() {
       setSignedUrl(data.signedUrl);
     } catch (e) {
       setSignedUrl("");
+    }
+  };
+
+  const runBootstrap = async () => {
+    setBootLoading(true); setBootMsg(null);
+    try {
+      const res = await fetch('/api/gestion-documental/bootstrap', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Error al inicializar');
+      setBootMsg('Estructura inicial creada/actualizada correctamente.');
+      await loadTree(path);
+    } catch (e: any) {
+      setBootMsg(e?.message || 'Error al inicializar');
+    } finally {
+      setBootLoading(false);
     }
   };
 
@@ -72,6 +91,13 @@ export default function GestionDocumentalPage() {
     );
   });
 
+  const FolderIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" className="text-blue-500"><path fill="currentColor" d="M10 4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2h6z"/></svg>
+  );
+  const FileIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" className="text-gray-500"><path fill="currentColor" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path fill="#fff" d="M14 2v6h6"/></svg>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-6xl mx-auto">
@@ -88,6 +114,14 @@ export default function GestionDocumentalPage() {
             {roots.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>
           <div className="ml-3 text-sm">{breadcrumb}</div>
+          <button className="ml-auto px-3 py-1 border rounded bg-white hover:bg-blue-50 text-sm" onClick={runBootstrap} disabled={bootLoading}>
+            {bootLoading ? 'Inicializando…' : 'Inicializar estructura'}
+          </button>
+          {bootMsg && <span className="text-sm ml-2 text-gray-600">{bootMsg}</span>}
+          <div className="ml-4 flex items-center gap-1">
+            <button className={`px-2 py-1 border rounded text-sm ${viewMode==='grid' ? 'bg-blue-600 text-white' : 'bg-white hover:bg-blue-50'}`} onClick={() => setViewMode('grid')}>Grid</button>
+            <button className={`px-2 py-1 border rounded text-sm ${viewMode==='list' ? 'bg-blue-600 text-white' : 'bg-white hover:bg-blue-50'}`} onClick={() => setViewMode('list')}>Lista</button>
+          </div>
         </div>
 
         {loading && <div className="text-gray-500">Cargando…</div>}
@@ -95,34 +129,65 @@ export default function GestionDocumentalPage() {
 
         {!loading && !error && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-1 bg-white rounded shadow p-3">
-              <h2 className="font-semibold text-blue-900 mb-2">Carpetas</h2>
-              <ul className="space-y-1">
-                {folders.map((fo) => (
-                  <li key={fo.path}>
-                    <button className="flex items-center gap-2 text-left hover:bg-blue-50 rounded px-2 py-1" onClick={() => loadTree(fo.path + "/") }>
-                      <span>📁</span>
-                      <span>{fo.name}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="md:col-span-1 bg-white rounded shadow p-3">
-              <h2 className="font-semibold text-blue-900 mb-2">Archivos</h2>
-              <ul className="space-y-1">
-                {files.map((fi) => (
-                  <li key={fi.path} className="flex items-center justify-between gap-2">
-                    <button className="flex items-center gap-2 text-left hover:bg-blue-50 rounded px-2 py-1" onClick={() => previewFile(fi.path)}>
-                      <span>📄</span>
-                      <span>{fi.name}</span>
-                    </button>
-                    <div className="flex items-center gap-2">
-                      <button className="text-xs px-2 py-1 border rounded hover:bg-gray-50" onClick={() => previewFile(fi.path)}>Preview</button>
+            <div className="md:col-span-2 bg-white rounded shadow p-3">
+              {viewMode === 'grid' ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  {folders.map((fo) => (
+                    <div key={fo.path}
+                      className={`flex flex-col items-center p-3 rounded cursor-pointer select-none ${selected===fo.path? 'bg-blue-50 ring-2 ring-blue-300' : 'hover:bg-gray-50'}`}
+                      onClick={() => setSelected(fo.path)}
+                      onDoubleClick={() => loadTree(fo.path)}
+                      title={fo.name}
+                    >
+                      <FolderIcon />
+                      <div className="mt-2 text-xs text-center break-words max-w-[120px]">{fo.name}</div>
                     </div>
-                  </li>
-                ))}
-              </ul>
+                  ))}
+                  {files.map((fi) => (
+                    <div key={fi.path}
+                      className={`flex flex-col items-center p-3 rounded cursor-pointer select-none ${selected===fi.path? 'bg-blue-50 ring-2 ring-blue-300' : 'hover:bg-gray-50'}`}
+                      onClick={() => setSelected(fi.path)}
+                      onDoubleClick={() => previewFile(fi.path)}
+                      title={fi.name}
+                    >
+                      <FileIcon />
+                      <div className="mt-2 text-xs text-center break-words max-w-[120px]">{fi.name}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h2 className="font-semibold text-blue-900 mb-2">Carpetas</h2>
+                    <ul className="space-y-1">
+                      {folders.map((fo) => (
+                        <li key={fo.path}>
+                          <button className="flex items-center gap-2 text-left hover:bg-blue-50 rounded px-2 py-1 w-full" onClick={() => loadTree(fo.path)}>
+                            <span>📁</span>
+                            <span>{fo.name}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <h2 className="font-semibold text-blue-900 mb-2">Archivos</h2>
+                    <ul className="space-y-1">
+                      {files.map((fi) => (
+                        <li key={fi.path} className="flex items-center justify-between gap-2">
+                          <button className="flex items-center gap-2 text-left hover:bg-blue-50 rounded px-2 py-1" onClick={() => { setSelected(fi.path); previewFile(fi.path); }}>
+                            <span>📄</span>
+                            <span>{fi.name}</span>
+                          </button>
+                          <div className="flex items-center gap-2">
+                            <button className="text-xs px-2 py-1 border rounded hover:bg-gray-50" onClick={() => previewFile(fi.path)}>Preview</button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="md:col-span-1 bg-white rounded shadow p-3">
               <h2 className="font-semibold text-blue-900 mb-2">Previsualización</h2>
