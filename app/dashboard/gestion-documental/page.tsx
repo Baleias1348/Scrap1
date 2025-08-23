@@ -16,6 +16,10 @@ export default function GestionDocumentalPage() {
   const [bootMsg, setBootMsg] = useState<string| null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selected, setSelected] = useState<string | null>(null);
+  const [showEditor, setShowEditor] = useState<boolean>(false);
+  const [editorPath, setEditorPath] = useState<string>("");
+  const [editorContent, setEditorContent] = useState<string>("");
+  const [uploading, setUploading] = useState<boolean>(false);
 
   const loadTree = async (p: string) => {
     setLoading(true); setError(null);
@@ -30,6 +34,94 @@ export default function GestionDocumentalPage() {
       setError(e?.message || "Error al cargar");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const isFolderPath = (p: string | null) => !!p && folders.some(f => f.path === p);
+  const isFilePath = (p: string | null) => !!p && files.some(f => f.path === p);
+
+  const handleOpen = async () => {
+    if (!selected) return;
+    if (isFolderPath(selected)) return loadTree(selected);
+    if (isFilePath(selected)) return previewFile(selected);
+  };
+
+  const handleDelete = async () => {
+    if (!selected) return;
+    if (!confirm('¿Eliminar el elemento seleccionado?')) return;
+    const res = await fetch('/api/gestion-documental/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: selected, isFolder: isFolderPath(selected) })
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data?.error || 'Error eliminando'); return; }
+    setSelected(null);
+    loadTree(path);
+  };
+
+  const handleNewFolder = async () => {
+    const name = prompt('Nombre de la carpeta');
+    if (!name) return;
+    const base = path ? (path.endsWith('/') ? path : path + '/') : '';
+    const res = await fetch('/api/gestion-documental/mkdir', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: base + name })
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data?.error || 'Error creando carpeta'); return; }
+    loadTree(path);
+  };
+
+  const openEditor = async (targetPath: string) => {
+    setEditorPath(targetPath);
+    setEditorContent('');
+    // Para edición, intentamos descargar el contenido si existe
+    try {
+      const res = await fetch(`/api/plantillas/file?path=${encodeURIComponent(targetPath)}&expiresIn=300`);
+      if (res.ok) {
+        const { signedUrl } = await res.json();
+        const text = await fetch(signedUrl).then(r => r.text());
+        setEditorContent(text);
+      }
+    } catch {}
+    setShowEditor(true);
+  };
+
+  const handleNewFile = async () => {
+    const name = prompt('Nombre del archivo (ej: notas.txt)');
+    if (!name) return;
+    const base = path ? (path.endsWith('/') ? path : path + '/') : '';
+    const full = base + name;
+    setEditorPath(full);
+    setEditorContent('');
+    setShowEditor(true);
+  };
+
+  const handleSaveEditor = async () => {
+    const res = await fetch('/api/gestion-documental/create-file', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: editorPath, content: editorContent, contentType: 'text/plain; charset=utf-8' })
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data?.error || 'Error guardando archivo'); return; }
+    setShowEditor(false);
+    previewFile(editorPath);
+    loadTree(path);
+  };
+
+  const handleUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append('path', path || '');
+      form.append('file', file);
+      const res = await fetch('/api/gestion-documental/upload', { method: 'POST', body: form });
+      const data = await res.json();
+      if (!res.ok) { alert(data?.error || 'Error subiendo'); return; }
+      loadTree(path);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -124,6 +216,21 @@ export default function GestionDocumentalPage() {
           </div>
         </div>
 
+        {/* Toolbar dentro de carpeta */}
+        <div className="flex items-center gap-2 mb-3 bg-white rounded border p-2">
+          <button className="px-3 py-1 border rounded text-sm bg-white hover:bg-blue-50" onClick={handleOpen} disabled={!selected}>Abrir</button>
+          <button className="px-3 py-1 border rounded text-sm bg-white hover:bg-blue-50" onClick={() => { if (selected && isFilePath(selected)) openEditor(selected); }} disabled={!selected || !isFilePath(selected)}>Editar</button>
+          <button className="px-3 py-1 border rounded text-sm bg-white hover:bg-red-50" onClick={handleDelete} disabled={!selected}>Eliminar</button>
+          <div className="mx-2 w-px h-6 bg-gray-200" />
+          <button className="px-3 py-1 border rounded text-sm bg-white hover:bg-blue-50" onClick={handleNewFolder}>Nueva carpeta</button>
+          <button className="px-3 py-1 border rounded text-sm bg-white hover:bg-blue-50" onClick={handleNewFile}>Nuevo archivo</button>
+          <label className="px-3 py-1 border rounded text-sm bg-white hover:bg-blue-50 cursor-pointer">
+            Subir archivo
+            <input type="file" className="hidden" onChange={(e)=>{ const f=e.target.files?.[0]; if (f) handleUpload(f); e.currentTarget.value=''; }} />
+          </label>
+          {uploading && <span className="text-sm text-gray-500">Subiendo…</span>}
+        </div>
+
         {loading && <div className="text-gray-500">Cargando…</div>}
         {error && <div className="text-red-600">{error}</div>}
 
@@ -196,6 +303,23 @@ export default function GestionDocumentalPage() {
               ) : (
                 <div className="text-gray-500">Selecciona un archivo para previsualizar</div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Modal Editor de texto */}
+        {showEditor && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white rounded shadow-lg w-full max-w-3xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold text-blue-900">Editar: {editorPath}</h3>
+                <button onClick={()=>setShowEditor(false)} className="text-sm px-2 py-1 border rounded">Cerrar</button>
+              </div>
+              <textarea value={editorContent} onChange={(e)=>setEditorContent(e.target.value)} className="w-full h-72 border rounded p-2 font-mono text-sm" />
+              <div className="mt-3 flex justify-end gap-2">
+                <button onClick={()=>setShowEditor(false)} className="px-3 py-1 border rounded">Cancelar</button>
+                <button onClick={handleSaveEditor} className="px-3 py-1 border rounded bg-blue-600 text-white">Guardar</button>
+              </div>
             </div>
           </div>
         )}
