@@ -204,6 +204,13 @@ const [messages, setMessages] = useState<Message[]>([
               ),
             },
             {
+              label: "Plantillas y Buenas Prácticas",
+              href: "/dashboard/plantillas",
+              icon: (
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h9.5a2 2 0 0 1 1.414.586l3.5 3.5A2 2 0 0 1 21 8.5V19a2 2 0 0 1-2 2H6.5a2 2 0 0 1-1.5-.5"></path><path d="M14 3v4a1 1 0 0 0 1 1h4"></path><path d="M8 13h8"></path><path d="M8 17h6"></path></svg>
+              ),
+            },
+            {
               label: "Empleados",
               href: "/dashboard/empleados",
               icon: (

@@ -33,8 +33,13 @@ export default function DocumentosModeloDashboard() {
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold mb-6 text-blue-900">📄 Documentos Modelo</h1>
-        <p className="mb-6 text-gray-700">Gestiona y consulta los modelos legales personalizables. Aquí podrás ver el estado, versión y validación de cada documento.</p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold mb-2 text-blue-900">📄 Documentos Modelo</h1>
+            <p className="mb-4 text-gray-700">Gestiona y consulta los modelos legales personalizables. Aquí podrás ver el estado, versión y validación de cada documento.</p>
+          </div>
+          <Link href="/dashboard/plantillas" className="px-3 py-2 bg-white border rounded hover:bg-blue-50 text-blue-700" title="Ir a Plantillas y Buenas Prácticas">Plantillas y Buenas Prácticas →</Link>
+        </div>
         <Link href="/dashboard/documentos-modelo/nuevo" className="inline-block mb-4 px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800">+ Nuevo Documento Modelo</Link>
         {loading && <div className="text-gray-500">Cargando documentos...</div>}
         {error && <div className="text-red-600">{error}</div>}
