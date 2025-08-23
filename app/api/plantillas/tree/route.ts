@@ -7,7 +7,10 @@ const BUCKET = 'prevencion2';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const path = searchParams.get('path') || '12_plantillas/';
+  // Respect empty path if provided to allow bucket root listing
+  const hasPath = searchParams.has('path');
+  let path = hasPath ? (searchParams.get('path') || '') : '12_plantillas/';
+  if (path === '/') path = '';
   const includeKeeps = (searchParams.get('includeKeeps') || 'false').toLowerCase() === 'true';
 
   try {
@@ -20,7 +23,8 @@ export async function GET(req: NextRequest) {
 
     for (const item of data || []) {
       if (item.name === '.keep' && !includeKeeps) continue;
-      const itemPath = path.endsWith('/') ? path + item.name : path + '/' + item.name;
+      const base = path ? (path.endsWith('/') ? path : path + '/') : '';
+      const itemPath = base + item.name;
       if (item.id === null) {
         // folder
         folders.push({ name: item.name, path: itemPath + '/' });
@@ -29,7 +33,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ path, folders, files }, { status: 200 });
+    return NextResponse.json({ path: path || '', folders, files }, { status: 200 });
   } catch (err: any) {
     return NextResponse.json({ error: 'Error listando árbol', details: err?.message || String(err) }, { status: 500 });
   }

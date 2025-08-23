@@ -6,7 +6,7 @@ interface TreeItem { name: string; path: string; }
 interface TreeResp { path: string; folders: TreeItem[]; files: (TreeItem & { size?: number|null, updated_at?: string|null })[] }
 
 export default function GestionDocumentalPage() {
-  const [path, setPath] = useState<string>("01_reglamentos/");
+  const [path, setPath] = useState<string>("");
   const [folders, setFolders] = useState<TreeItem[]>([]);
   const [files, setFiles] = useState<(TreeItem & { size?: number|null, updated_at?: string|null })[]>([]);
   const [signedUrl, setSignedUrl] = useState<string>("");
@@ -42,23 +42,23 @@ export default function GestionDocumentalPage() {
   };
 
   useEffect(() => {
-    // Raíces sugeridas al usuario
-    // Puedes cambiar rápidamente entre: 01_reglamentos/, 02_afiliacion_y_seguros/, 03_comite_paritario/, 04_matriz_riesgos/, 05_capacitaciones/, 06_emergencias/, 07_accidentes_enfermedades/, 08_trabajadores/, 09_epp/, 10_fiscalizaciones/, 11_equipos_mantenimiento/
+    // Carga inicial en la raíz del bucket para listar todas las carpetas top-level
     loadTree(path);
   }, []);
 
-  const roots = [
-    "01_reglamentos/",
-    "02_afiliacion_y_seguros/",
-    "03_comite_paritario/",
-    "04_matriz_riesgos/",
-    "05_capacitaciones/",
-    "06_emergencias/",
-    "07_accidentes_enfermedades/",
-    "08_trabajadores/",
-    "09_epp/",
-    "10_fiscalizaciones/",
-    "11_equipos_mantenimiento/",
+  const roots: { value: string; label: string }[] = [
+    { value: '', label: 'Todas (raíz)' },
+    { value: '01_reglamentos/', label: '01_reglamentos/' },
+    { value: '02_afiliacion_y_seguros/', label: '02_afiliacion_y_seguros/' },
+    { value: '03_comite_paritario/', label: '03_comite_paritario/' },
+    { value: '04_matriz_riesgos/', label: '04_matriz_riesgos/' },
+    { value: '05_capacitaciones/', label: '05_capacitaciones/' },
+    { value: '06_emergencias/', label: '06_emergencias/' },
+    { value: '07_accidentes_enfermedades/', label: '07_accidentes_enfermedades/' },
+    { value: '08_trabajadores/', label: '08_trabajadores/' },
+    { value: '09_epp/', label: '09_epp/' },
+    { value: '10_fiscalizaciones/', label: '10_fiscalizaciones/' },
+    { value: '11_equipos_mantenimiento/', label: '11_equipos_mantenimiento/' },
   ];
 
   const crumbs = path.split("/").filter(Boolean);
@@ -85,7 +85,7 @@ export default function GestionDocumentalPage() {
         <div className="flex items-center gap-2 mb-3">
           <span className="text-sm text-gray-600">Raíz:</span>
           <select className="border rounded px-2 py-1" value={path} onChange={(e) => loadTree(e.target.value)}>
-            {roots.map(r => <option key={r} value={r}>{r}</option>)}
+            {roots.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>
           <div className="ml-3 text-sm">{breadcrumb}</div>
         </div>
