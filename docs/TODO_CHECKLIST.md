@@ -20,6 +20,8 @@ Este documento registra la lista de chequeo (checklist) para próximas mejoras r
 - [ ] Bootstrap por usuario: crear estructura base dentro de `/{user_id}/...`.
 - [ ] Migración (si ya hay archivos sin prefijo): script de realojar a `/{user_id}/...` o estrategia de compatibilidad.
 - [ ] Señalizar en UI si la carpeta ya está migrada al esquema por usuario.
+- [ ] Bootstrap por organización: cada usuario puede crear múltiples organizaciones y cada una recibe el kit de carpetas por defecto (namespacing sugerido `/{org_id}/{user_id}/...`).
+- [ ] Kit de carpetas por defecto actualizado: incluir `08_trabajadores/trabajadores indirectos/` como subcarpeta protegida.
 
 ## UI/UX
 - [ ] Mostrar indicador del espacio de trabajo actual (organización/usuario) en la cabecera de Documentación.
@@ -37,6 +39,7 @@ Este documento registra la lista de chequeo (checklist) para próximas mejoras r
 - [ ] Sanitizar rutas recibidas del cliente (evitar path traversal).
 - [ ] Registrar auditoría básica (quién sube/edita/borra, path y timestamp).
 - [ ] Manejo de errores y reintentos con feedback en UI.
+- [ ] Protección de borrado para carpetas base con namespacing (prefijos): asegurar que el endpoint de delete bloquee `/{org_id}/{user_id}/<carpeta-base>/` y subcarpetas críticas (incluida `08_trabajadores/trabajadores indirectos/`).
 
 ## Rendimiento y costos
 - [ ] Ajustar expiración de URLs firmadas según uso (previsualización vs descarga).

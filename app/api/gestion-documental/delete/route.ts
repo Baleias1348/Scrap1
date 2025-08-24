@@ -15,6 +15,8 @@ const PROTECTED_FOLDERS = new Set<string>([
   '06_emergencias/',
   '07_accidentes_enfermedades/',
   '08_trabajadores/',
+  // Subcarpetas protegidas dentro de trabajadores
+  '08_trabajadores/trabajadores indirectos/',
   '09_epp/',
   '10_fiscalizaciones/',
   '11_equipos_mantenimiento/',

@@ -30,6 +30,26 @@ Preventi Flow es una plataforma conversacional que integra IA, cumplimiento norm
 - Protección de datos: Ley 19.628 (Chile) y GDPR (UE).
 - Seguridad: Control de acceso y autenticación robusta.
 
+## Kit de Carpetas por Organización/Usuario (Gestión Documental)
+Cada usuario puede crear múltiples organizaciones. Para cada organización se provisiona un kit de carpetas por defecto en el bucket de almacenamiento (Supabase). Estas carpetas base están protegidas contra eliminación:
+
+- `01_reglamentos/`
+- `02_afiliacion_y_seguros/`
+- `03_comite_paritario/`
+- `04_matriz_riesgos/`
+- `05_capacitaciones/`
+- `06_emergencias/`
+- `07_accidentes_enfermedades/`
+- `08_trabajadores/`
+  - `08_trabajadores/trabajadores indirectos/` (protegida)
+- `09_epp/`
+- `10_fiscalizaciones/`
+- `11_equipos_mantenimiento/`
+
+Notas:
+- En el futuro inmediato, las rutas se namespacen por organización y usuario, p. ej.: `/{org_id}/{user_id}/01_reglamentos/`.
+- El endpoint de borrado bloquea la eliminación de estas rutas base. Si se usa namespacing, la verificación deberá considerar prefijos.
+
 ---
 
 # Scraping Hub
