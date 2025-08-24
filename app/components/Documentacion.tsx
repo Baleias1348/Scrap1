@@ -277,7 +277,7 @@ export default function Documentacion() {
         const resp = await fetch(sUrl);
         const ab = await resp.arrayBuffer();
         const XLSX = await import('xlsx');
-        const wb = XLSX.read(ab);
+        const wb = XLSX.read(ab, { type: 'array' });
         const first = wb.SheetNames[0];
         const sheet = wb.Sheets[first];
         const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
@@ -290,7 +290,7 @@ export default function Documentacion() {
         const resp = await fetch(sUrl);
         const ab = await resp.arrayBuffer();
         const XLSX = await import('xlsx');
-        const wb = XLSX.read(ab);
+        const wb = XLSX.read(ab, { type: 'array' });
         const first = wb.SheetNames[0];
         const sheet = wb.Sheets[first];
         const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
@@ -309,6 +309,7 @@ export default function Documentacion() {
         setPreviewUrl(sUrl);
       }
     } catch (e) {
+      console.error('Preview error:', e);
       setFolderError('No se pudo previsualizar el archivo');
     }
   };
@@ -619,7 +620,7 @@ export default function Documentacion() {
                       {previewingFile ? previewingFile.name : isEditing ? 'Editor' : 'Selecciona un archivo'}
                     </div>
                     <div className="flex items-center gap-2">
-                      {previewingFile && !isEditing && (
+                      {previewingFile && !isEditing && previewUrl && (
                         <a className="text-xs px-2 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition" href={previewUrl} target="_blank" rel="noreferrer">Abrir pestaña</a>
                       )}
                       {previewingFile && !isEditing && (
@@ -638,7 +639,7 @@ export default function Documentacion() {
                             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
-                            a.href = url; a.download = (previewingFile.name.replace(/\.(xlsx|xls)$/i, '') + '.csv');
+                            a.href = url; a.download = (previewingFile.name.replace(/\.(xlsx|xls|csv)$/i, '') + '.csv');
                             a.click();
                             URL.revokeObjectURL(url);
                           } catch {}
