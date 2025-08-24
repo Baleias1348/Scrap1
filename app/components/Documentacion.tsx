@@ -271,13 +271,8 @@ export default function Documentacion() {
       setEditingContent("");
       setPreviewText("");
       setXlsRows(null); setXlsSheetName(null); setXlsAllSheets(null);
-      if (isEditable(file.name)) {
-        const sUrl = await getSignedUrl(file.path, 900);
-        const resp = await fetch(sUrl);
-        const text = await resp.text();
-        setPreviewUrl("");
-        setPreviewText(text);
-      } else if (isExcel(file.name)) {
+      // Priorizar visores tabulares (Excel/CSV) para un clic
+      if (isExcel(file.name)) {
         const sUrl = await getSignedUrl(file.path, 900);
         const resp = await fetch(sUrl);
         const ab = await resp.arrayBuffer();
@@ -290,6 +285,25 @@ export default function Documentacion() {
         setXlsAllSheets(wb.SheetNames);
         setXlsSheetName(first);
         setXlsRows(rows as any[]);
+      } else if (isCsv(file.name)) {
+        const sUrl = await getSignedUrl(file.path, 900);
+        const resp = await fetch(sUrl);
+        const ab = await resp.arrayBuffer();
+        const XLSX = await import('xlsx');
+        const wb = XLSX.read(ab);
+        const first = wb.SheetNames[0];
+        const sheet = wb.Sheets[first];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        setPreviewUrl("");
+        setXlsAllSheets(wb.SheetNames);
+        setXlsSheetName(first);
+        setXlsRows(rows as any[]);
+      } else if (isEditable(file.name)) {
+        const sUrl = await getSignedUrl(file.path, 900);
+        const resp = await fetch(sUrl);
+        const text = await resp.text();
+        setPreviewUrl("");
+        setPreviewText(text);
       } else {
         const sUrl = await getSignedUrl(file.path);
         setPreviewUrl(sUrl);
@@ -307,6 +321,10 @@ export default function Documentacion() {
   const isExcel = (name: string) => {
     const lower = name.toLowerCase();
     return lower.endsWith('.xlsx') || lower.endsWith('.xls');
+  };
+
+  const isCsv = (name: string) => {
+    return name.toLowerCase().endsWith('.csv');
   };
 
   const isMarkdown = (nameOrUrl?: string | null) => {
@@ -607,7 +625,7 @@ export default function Documentacion() {
                       {previewingFile && !isEditing && (
                         <button className="text-xs px-2 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition" onClick={async () => { try { const s = await getSignedUrl(previewingFile.path); window.open(s, '_blank'); } catch {} }}>Descargar</button>
                       )}
-                      {previewingFile && !isEditing && isExcel(previewingFile.name) && xlsRows && (
+                      {previewingFile && !isEditing && (isExcel(previewingFile.name) || isCsv(previewingFile.name)) && xlsRows && (
                         <button className="text-xs px-2 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition" onClick={async () => {
                           try {
                             const sUrl = await getSignedUrl(previewingFile.path, 900);
