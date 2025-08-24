@@ -111,7 +111,7 @@ export default function ChatWindow() {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Escribe tu consulta..."
-          style={{ maxHeight: 4 * 24 }}
+          style={{ maxHeight: 4 * 24, backgroundColor: '#FFF1E6' }}
         />
         <button
           onClick={handleSend}
