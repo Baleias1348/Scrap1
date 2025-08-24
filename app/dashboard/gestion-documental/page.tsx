@@ -12,8 +12,6 @@ export default function GestionDocumentalPage() {
   const [signedUrl, setSignedUrl] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string| null>(null);
-  const [bootLoading, setBootLoading] = useState<boolean>(false);
-  const [bootMsg, setBootMsg] = useState<string| null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selected, setSelected] = useState<string | null>(null);
   const [showEditor, setShowEditor] = useState<boolean>(false);
@@ -137,20 +135,7 @@ export default function GestionDocumentalPage() {
     }
   };
 
-  const runBootstrap = async () => {
-    setBootLoading(true); setBootMsg(null);
-    try {
-      const res = await fetch('/api/gestion-documental/bootstrap', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'Error al inicializar');
-      setBootMsg('Estructura inicial creada/actualizada correctamente.');
-      await loadTree(path);
-    } catch (e: any) {
-      setBootMsg(e?.message || 'Error al inicializar');
-    } finally {
-      setBootLoading(false);
-    }
-  };
+  // Estructura se crea automáticamente en el API si la raíz está vacía
 
   useEffect(() => {
     // Carga inicial en la raíz del bucket para listar todas las carpetas top-level
@@ -206,10 +191,7 @@ export default function GestionDocumentalPage() {
             {roots.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>
           <div className="ml-3 text-sm">{breadcrumb}</div>
-          <button className="ml-auto px-3 py-1 border rounded bg-white hover:bg-blue-50 text-sm" onClick={runBootstrap} disabled={bootLoading}>
-            {bootLoading ? 'Inicializando…' : 'Inicializar estructura'}
-          </button>
-          {bootMsg && <span className="text-sm ml-2 text-gray-600">{bootMsg}</span>}
+          <div className="ml-auto" />
           <div className="ml-4 flex items-center gap-1">
             <button className={`px-2 py-1 border rounded text-sm ${viewMode==='grid' ? 'bg-blue-600 text-white' : 'bg-white hover:bg-blue-50'}`} onClick={() => setViewMode('grid')}>Grid</button>
             <button className={`px-2 py-1 border rounded text-sm ${viewMode==='list' ? 'bg-blue-600 text-white' : 'bg-white hover:bg-blue-50'}`} onClick={() => setViewMode('list')}>Lista</button>

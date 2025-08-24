@@ -142,6 +142,20 @@ const [messages, setMessages] = useState<Message[]>([
     });
   }, []);
 
+  // Medir altura del header sticky para posicionar el chat 20px debajo
+  const headerRef = useRef<HTMLElement | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  useEffect(() => {
+    const update = () => {
+      if (headerRef.current) {
+        setHeaderHeight(headerRef.current.getBoundingClientRect().height || 0);
+      }
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
   return (
     <div className="flex h-screen text-white/80 overflow-hidden">
       {/* Overlay para móvil */}
@@ -167,6 +181,7 @@ const [messages, setMessages] = useState<Message[]>([
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
           </button>
         </div>
+        <div className="font-inter">
         <div className="relative group mb-8">
           <div className="p-4 rounded-lg bg-black/20 border border-white/5 text-center">
             <img src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="User avatar" className="w-16 h-16 rounded-full mx-auto border-2 border-[#ff6a00]/50" />
@@ -214,7 +229,7 @@ const [messages, setMessages] = useState<Message[]>([
               ),
             },
             {
-              label: "Gestión Documental",
+              label: "Documents Flow",
               href: "/dashboard/gestion-documental",
               hasSubmenu: true,
               icon: (
@@ -263,7 +278,7 @@ const [messages, setMessages] = useState<Message[]>([
                   >
                     <button
                       type="button"
-                      className={`flex items-center gap-3 w-full rounded-lg pt-2 pr-4 pb-2 pl-4 font-semibold relative z-10 transition-colors duration-200 focus:outline-none ${
+                      className={`flex items-center gap-3 w-full rounded-lg pt-2 pr-4 pb-2 pl-4 text-sm font-normal relative z-10 transition-colors duration-200 focus:outline-none ${
                         (hovered === idx || activeIdx === idx) ? "text-[#ff6a00]" : "text-white/80 hover:text-[#ff6a00]"
                       }`}
                       aria-current={activeIdx === idx ? "page" : undefined}
@@ -288,7 +303,7 @@ const [messages, setMessages] = useState<Message[]>([
                   >
                     <button
                       type="button"
-                      className={`flex items-center gap-3 w-full rounded-lg pt-2 pr-4 pb-2 pl-4 font-semibold relative z-10 transition-colors duration-200 focus:outline-none ${
+                      className={`flex items-center gap-3 w-full rounded-lg pt-2 pr-4 pb-2 pl-4 text-sm font-normal relative z-10 transition-colors duration-200 focus:outline-none ${
                         (hovered === idx || activeIdx === idx) ? "text-[#ff6a00]" : "text-white/80 hover:text-[#ff6a00]"
                       }`}
                       aria-current={activeIdx === idx ? "page" : undefined}
@@ -319,7 +334,7 @@ const [messages, setMessages] = useState<Message[]>([
                   <a
                     key={item.label}
                     href={item.href}
-                    className={`flex items-center gap-3 px-4 py-2 rounded-lg font-semibold relative z-10 transition-colors duration-200 ${
+                    className={`flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-normal relative z-10 transition-colors duration-200 ${
                       (hovered === idx || activeIdx === idx) ? "text-[#ff6a00]" : "text-white/80 hover:text-[#ff6a00]"
                     }`}
                     onMouseEnter={() => setHovered(idx)}
@@ -337,11 +352,12 @@ const [messages, setMessages] = useState<Message[]>([
         })()}
 
         <div className="mt-auto" />
+        </div>
       </aside>
       {/* Contenido principal */}
-      <main className="flex-1 lg:p-10 overflow-y-auto pt-6 pr-6 pb-6 pl-6">
+      <main className="relative flex-1 lg:p-10 overflow-y-auto pt-6 pr-6 pb-6 pl-6">
         {/* Header */}
-        <header className="flex items-center justify-between mb-8">
+        <header ref={headerRef} className="sticky top-0 z-40 flex items-center justify-between mb-8 bg-black/40 backdrop-blur-xl border-b border-white/10 pt-3 pr-4 pb-3 pl-4">
           <div className="flex items-center gap-4">
             <button
               className="md:hidden text-white/80 hover:text-white"
@@ -424,41 +440,24 @@ const [messages, setMessages] = useState<Message[]>([
     <button className="mt-8 px-4 py-2 bg-[#ff6a00] text-white rounded-full shadow hover:bg-[#ff8a3b] transition" onClick={() => setShowHistory(false)}>Volver</button>
   </div>
 ) : showChat ? (
-  <div className="flex flex-col items-center justify-center min-h-[600px] w-full">
-    <button
-      className="self-end mb-4 px-1 py-0.5 bg-[#ff6a00] text-white rounded-lg shadow hover:bg-[#ff8a3b] transition text-xs"
-      style={{ transform: 'scale(0.5)' }}
-      onClick={() => setShowChat(false)}
-    >
-      Cerrar chat
-    </button>
-    <ChatWindow
-      messages={messages}
-      inputValue={inputValue}
-      onInputChange={setInputValue}
-      onSend={() => {
-        if (!inputValue.trim()) return;
-        setMessages([
-          ...messages,
-          {
-            id: (messages.length + 1).toString(),
-            sender: "user",
-            name: "Olivia Martin",
-            avatarUrl: "https://i.pravatar.cc/150?u=a042581f4e29026704d",
-            content: inputValue,
-          },
-          {
-            id: (messages.length + 2).toString(),
-            sender: "assistant",
-            name: "Asistente Preventi Flow",
-            avatarUrl: "/assistant-avatar.png",
-            content: "(Simulación) Estoy procesando tu consulta...",
-          },
-        ]);
-        setInputValue("");
-      }}
-      loading={loading}
-    />
+  <div
+    className="absolute left-0 right-0 z-30 flex items-center justify-center"
+    style={{ top: headerHeight + 50, bottom: 30 }}
+  >
+    <div className="w-full h-full max-w-none">
+      <div className="relative w-[95%] h-full mx-auto">
+        <button
+          className="absolute -top-3 -right-3 z-40 px-1 py-0.5 bg-[#ff6a00] text-white rounded-lg shadow hover:bg-[#ff8a3b] transition text-xs"
+          style={{ transform: 'scale(0.75)' }}
+          onClick={() => setShowChat(false)}
+        >
+          Cerrar chat
+        </button>
+        <div className="w-full h-full">
+          <ChatWindow />
+        </div>
+      </div>
+    </div>
   </div>
 ) : showDocumentacion ? (
           <div className="min-h-[600px] w-full">
