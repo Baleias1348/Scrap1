@@ -64,6 +64,10 @@ export default function Documentacion() {
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<TreeItem | null>(null);
+  // Estado de preview Excel (solo lectura)
+  const [xlsRows, setXlsRows] = useState<any[] | null>(null);
+  const [xlsSheetName, setXlsSheetName] = useState<string | null>(null);
+  const [xlsAllSheets, setXlsAllSheets] = useState<string[] | null>(null);
 
   useEffect(() => {
     const loadRoot = async () => {
@@ -266,12 +270,26 @@ export default function Documentacion() {
       setIsEditing(false);
       setEditingContent("");
       setPreviewText("");
+      setXlsRows(null); setXlsSheetName(null); setXlsAllSheets(null);
       if (isEditable(file.name)) {
         const sUrl = await getSignedUrl(file.path, 900);
         const resp = await fetch(sUrl);
         const text = await resp.text();
         setPreviewUrl("");
         setPreviewText(text);
+      } else if (isExcel(file.name)) {
+        const sUrl = await getSignedUrl(file.path, 900);
+        const resp = await fetch(sUrl);
+        const ab = await resp.arrayBuffer();
+        const XLSX = await import('xlsx');
+        const wb = XLSX.read(ab);
+        const first = wb.SheetNames[0];
+        const sheet = wb.Sheets[first];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        setPreviewUrl("");
+        setXlsAllSheets(wb.SheetNames);
+        setXlsSheetName(first);
+        setXlsRows(rows as any[]);
       } else {
         const sUrl = await getSignedUrl(file.path);
         setPreviewUrl(sUrl);
@@ -284,6 +302,11 @@ export default function Documentacion() {
   const isEditable = (name: string) => {
     const lower = name.toLowerCase();
     return ['.md', '.txt', '.csv', '.json', '.html', '.css', '.js', '.ts'].some(ext => lower.endsWith(ext));
+  };
+
+  const isExcel = (name: string) => {
+    const lower = name.toLowerCase();
+    return lower.endsWith('.xlsx') || lower.endsWith('.xls');
   };
 
   const isMarkdown = (nameOrUrl?: string | null) => {
@@ -584,6 +607,25 @@ export default function Documentacion() {
                       {previewingFile && !isEditing && (
                         <button className="text-xs px-2 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition" onClick={async () => { try { const s = await getSignedUrl(previewingFile.path); window.open(s, '_blank'); } catch {} }}>Descargar</button>
                       )}
+                      {previewingFile && !isEditing && isExcel(previewingFile.name) && xlsRows && (
+                        <button className="text-xs px-2 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition" onClick={async () => {
+                          try {
+                            const sUrl = await getSignedUrl(previewingFile.path, 900);
+                            const resp = await fetch(sUrl);
+                            const ab = await resp.arrayBuffer();
+                            const XLSX = await import('xlsx');
+                            const wb = XLSX.read(ab);
+                            const sheet = xlsSheetName ? wb.Sheets[xlsSheetName] : wb.Sheets[wb.SheetNames[0]];
+                            const csv = XLSX.utils.sheet_to_csv(sheet);
+                            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url; a.download = (previewingFile.name.replace(/\.(xlsx|xls)$/i, '') + '.csv');
+                            a.click();
+                            URL.revokeObjectURL(url);
+                          } catch {}
+                        }}>Exportar CSV</button>
+                      )}
                       {previewingFile && !isEditing && (
                         <button className="text-xs px-2 py-1 rounded border border-red-400/40 text-red-300 hover:bg-red-500/10 transition" onClick={() => { setFileToDelete(previewingFile); setConfirmDeleteOpen(true); }}>Eliminar</button>
                       )}
@@ -612,6 +654,43 @@ export default function Documentacion() {
                       ) : (
                         <pre className="w-full h-[60vh] overflow-auto bg-transparent p-3 text-sm text-white whitespace-pre-wrap">{previewText}</pre>
                       )
+                    ) : xlsRows ? (
+                      <div className="w-full h-[60vh] overflow-auto text-sm">
+                        <div className="flex items-center gap-2 p-2 border-b border-white/10">
+                          <span className="text-xs text-white/60">Hoja:</span>
+                          <select value={xlsSheetName || ''} onChange={async (e) => {
+                            const name = e.target.value; setXlsSheetName(name);
+                            try {
+                              if (!previewingFile) return;
+                              const sUrl = await getSignedUrl(previewingFile.path, 900);
+                              const resp = await fetch(sUrl);
+                              const ab = await resp.arrayBuffer();
+                              const XLSX = await import('xlsx');
+                              const wb = XLSX.read(ab);
+                              const sheet = wb.Sheets[name];
+                              const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                              setXlsRows(rows as any[]);
+                            } catch {}
+                          }} className="bg-transparent border border-white/20 text-white text-xs rounded px-2 py-1">
+                            {(xlsAllSheets || []).map(s => (
+                              <option className="bg-[#0b0f1a]" key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="p-2">
+                          <table className="min-w-full text-xs text-white/90">
+                            <tbody>
+                              {(xlsRows as any[]).map((row, idx) => (
+                                <tr key={idx} className={idx === 0 ? 'font-semibold' : ''}>
+                                  {(row || []).map((cell: any, cidx: number) => (
+                                    <td key={cidx} className="border border-white/10 px-2 py-1 align-top whitespace-pre-wrap">{String(cell ?? '')}</td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     ) : previewUrl ? (
                       <iframe src={previewUrl} className="w-full h-[60vh]" />
                     ) : (

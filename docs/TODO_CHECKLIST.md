@@ -26,6 +26,11 @@ Este documento registra la lista de chequeo (checklist) para próximas mejoras r
 - [ ] Soporte de vista “split” para edición de `.md` (editor + vista Markdown simultánea).
 - [ ] Iconos por tipo de archivo y ordenamiento/búsqueda en lista de archivos.
 - [ ] Validación de nombres (carpetas/archivos) y modal de creación (reemplazar `prompt`).
+- [ ] Analizar conveniencia de edición de Excel/otros: opciones y trade-offs.
+  - [ ] In-app (recomendado): `xlsx` + AG Grid/Handsontable para edición; sidecar de acciones con asistente AI (limpieza, fórmulas, pivotes, transformación de columnas).
+  - [ ] Google Sheets: integración OAuth, conversión en Drive; pro: colaboración; contra: complejidad OAuth, privacidad, lock-in.
+  - [ ] Airtable: UI excelente; contra: límites API, costos, lock-in; AI asistido más complejo.
+  - [ ] Plan por fases: 1) visor solo lectura con `xlsx` (hecho), 2) edición en-app con grid + AI, 3) export/import a `.xlsx`/`.csv`.
 
 ## Seguridad y operativa
 - [ ] Limitar tipos/tamaño de archivos en upload; mostrar error claro en UI.
