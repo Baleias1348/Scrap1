@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import MarkdownRenderer from "./MarkdownRenderer";
 
 interface TreeItem { name: string; path: string }
 interface TreeResp { path: string; folders: TreeItem[]; files: (TreeItem & { size?: number|null, updated_at?: string|null })[] }
@@ -42,8 +43,27 @@ export default function Documentacion() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState<string>("");
   const [modalUrl, setModalUrl] = useState<string>("");
+  const [modalText, setModalText] = useState<string>("");
+  const [modalLoading, setModalLoading] = useState<boolean>(false);
 
   const [thresholdDays, setThresholdDays] = useState<number>(30);
+
+  // Estado para abrir carpeta dentro del canvas
+  const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
+  const [selectedFolderTitle, setSelectedFolderTitle] = useState<string>("");
+  const [folderFiles, setFolderFiles] = useState<(TreeItem & { size?: number|null, updated_at?: string|null })[]>([]);
+  const [loadingFolder, setLoadingFolder] = useState<boolean>(false);
+  const [folderError, setFolderError] = useState<string | null>(null);
+  const [previewingFile, setPreviewingFile] = useState<TreeItem & { size?: number|null, updated_at?: string|null } | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [previewText, setPreviewText] = useState<string>("");
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [editingContent, setEditingContent] = useState<string>("");
+  const [saving, setSaving] = useState<boolean>(false);
+  const [uploading, setUploading] = useState<boolean>(false);
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<TreeItem | null>(null);
 
   useEffect(() => {
     const loadRoot = async () => {
@@ -98,6 +118,31 @@ export default function Documentacion() {
         setLoading(false);
       }
     };
+
+  const handleDeleteFile = async () => {
+    if (!fileToDelete) return;
+    try {
+      const res = await fetch('/api/gestion-documental/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: (fileToDelete as any).path, isFolder: false })
+      });
+      if (!res.ok) throw new Error('No se pudo eliminar el archivo');
+      // refrescar lista
+      await openFolderInCanvas(selectedFolderPath!, selectedFolderTitle);
+      // limpiar preview si era el archivo eliminado
+      if (previewingFile && previewingFile.path === (fileToDelete as any).path) {
+        setPreviewingFile(null);
+        setPreviewUrl("");
+        setPreviewText("");
+        setIsEditing(false);
+      }
+      setConfirmDeleteOpen(false);
+      setFileToDelete(null);
+    } catch (e: any) {
+      setFolderError(e?.message || 'Error eliminando archivo');
+    }
+  };
     loadRoot();
   }, []);
 
@@ -138,12 +183,241 @@ export default function Documentacion() {
     );
   };
 
-  const openReadme = (folderPath: string, title: string) => {
-    const url = readmeUrls[folderPath];
-    if (!url) return; // opcional: toast
+  const openReadme = async (folderPath: string, title: string) => {
     setModalTitle(title);
-    setModalUrl(url);
+    setModalText("");
+    setModalLoading(true);
     setModalOpen(true);
+    try {
+      let url = readmeUrls[folderPath];
+      if (!url) {
+        // Buscar README en el momento si no está precargado
+        const tryPaths = [`${folderPath}README.md`, `${folderPath}README.pdf`, `${folderPath}README.txt`];
+        for (const p of tryPaths) {
+          try {
+            const urlRes = await fetch(`/api/plantillas/file?path=${encodeURIComponent(p)}&expiresIn=600`);
+            if (urlRes.ok) {
+              const j = await urlRes.json();
+              if (j?.signedUrl) { url = j.signedUrl; break; }
+            }
+          } catch {}
+        }
+      }
+      setModalUrl(url || "");
+      if (!url) {
+        setModalText("");
+        return;
+      }
+      // Si es markdown o texto, lo cargamos y renderizamos con MarkdownRenderer
+      const lower = url.toLowerCase();
+      const isMd = lower.includes('readme.md');
+      const isTxt = lower.endsWith('.txt');
+      if (isMd || isTxt) {
+        const resp = await fetch(url);
+        const txt = await resp.text();
+        setModalText(txt);
+      } else {
+        setModalText("");
+      }
+    } catch {
+      setModalText("");
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  // Abrir carpeta dentro del canvas
+  const openFolderInCanvas = async (folderPath: string, title: string) => {
+    setSelectedFolderPath(folderPath);
+    setSelectedFolderTitle(title);
+    setPreviewingFile(null);
+    setPreviewUrl("");
+    setIsEditing(false);
+    setEditingContent("");
+    setFolderError(null);
+    setLoadingFolder(true);
+    try {
+      // Bootstrap general (asegura estructura); idempotente
+      await fetch('/api/gestion-documental/bootstrap', { method: 'POST' }).catch(() => {});
+      // Listar archivos de la carpeta
+      const r = await fetch(`/api/plantillas/tree?path=${encodeURIComponent(folderPath)}`);
+      if (!r.ok) throw new Error('No se pudo listar la carpeta');
+      const dt: TreeResp = await r.json();
+      // Excluir .keep
+      const files = (dt.files || []).filter(x => x.name !== '.keep');
+      setFolderFiles(files);
+    } catch (e: any) {
+      setFolderError(e?.message || 'Error al abrir la carpeta');
+    } finally {
+      setLoadingFolder(false);
+    }
+  };
+
+  const getSignedUrl = async (path: string, expiresIn = 600) => {
+    const urlRes = await fetch(`/api/plantillas/file?path=${encodeURIComponent(path)}&expiresIn=${expiresIn}`);
+    if (!urlRes.ok) throw new Error('No se pudo obtener URL firmada');
+    const j = await urlRes.json();
+    return j?.signedUrl as string;
+  };
+
+  const handleFileClick = async (file: TreeItem & { size?: number|null, updated_at?: string|null }) => {
+    try {
+      setPreviewingFile(file);
+      setIsEditing(false);
+      setEditingContent("");
+      setPreviewText("");
+      if (isEditable(file.name)) {
+        const sUrl = await getSignedUrl(file.path, 900);
+        const resp = await fetch(sUrl);
+        const text = await resp.text();
+        setPreviewUrl("");
+        setPreviewText(text);
+      } else {
+        const sUrl = await getSignedUrl(file.path);
+        setPreviewUrl(sUrl);
+      }
+    } catch (e) {
+      setFolderError('No se pudo previsualizar el archivo');
+    }
+  };
+
+  const isEditable = (name: string) => {
+    const lower = name.toLowerCase();
+    return ['.md', '.txt', '.csv', '.json', '.html', '.css', '.js', '.ts'].some(ext => lower.endsWith(ext));
+  };
+
+  const isMarkdown = (nameOrUrl?: string | null) => {
+    if (!nameOrUrl) return false;
+    return nameOrUrl.toLowerCase().endsWith('.md') || nameOrUrl.toLowerCase().includes('readme.md');
+  };
+
+  const contentTypeFromName = (name: string): string => {
+    const n = name.toLowerCase();
+    if (n.endsWith('.md')) return 'text/markdown; charset=utf-8';
+    if (n.endsWith('.txt')) return 'text/plain; charset=utf-8';
+    if (n.endsWith('.csv')) return 'text/csv; charset=utf-8';
+    if (n.endsWith('.json')) return 'application/json; charset=utf-8';
+    if (n.endsWith('.html')) return 'text/html; charset=utf-8';
+    if (n.endsWith('.css')) return 'text/css; charset=utf-8';
+    if (n.endsWith('.js')) return 'application/javascript; charset=utf-8';
+    if (n.endsWith('.ts')) return 'application/typescript; charset=utf-8';
+    if (n.endsWith('.xml')) return 'application/xml; charset=utf-8';
+    if (n.endsWith('.pdf')) return 'application/pdf';
+    if (n.endsWith('.png')) return 'image/png';
+    if (n.endsWith('.jpg') || n.endsWith('.jpeg')) return 'image/jpeg';
+    if (n.endsWith('.webp')) return 'image/webp';
+    return 'application/octet-stream';
+  };
+
+  const handleFileDoubleClick = async (file: TreeItem & { size?: number|null, updated_at?: string|null }) => {
+    if (!isEditable(file.name)) {
+      // Si no es editable, abrimos preview normal
+      return handleFileClick(file);
+    }
+    try {
+      const sUrl = await getSignedUrl(file.path, 900);
+      const resp = await fetch(sUrl);
+      const text = await resp.text();
+      setPreviewingFile(file);
+      setPreviewUrl("");
+      setPreviewText("");
+      setIsEditing(true);
+      setEditingContent(text);
+    } catch (e) {
+      setFolderError('No se pudo abrir el editor');
+    }
+  };
+
+
+  const handleSave = async () => {
+    if (!previewingFile || !isEditing) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/gestion-documental/create-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          path: previewingFile.path,
+          content: editingContent,
+          contentType: contentTypeFromName(previewingFile.name),
+        })
+      });
+      if (!res.ok) throw new Error('No se pudo guardar');
+      // refrescar lista y previsualización
+      await openFolderInCanvas(selectedFolderPath!, selectedFolderTitle);
+      await handleFileClick(previewingFile);
+      setIsEditing(false);
+    } catch (e: any) {
+      setFolderError(e?.message || 'Error al guardar');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDiscard = () => {
+    setIsEditing(false);
+    setEditingContent("");
+  };
+
+  // Acciones: Crear carpeta / Crear archivo / Subir archivo
+  const handleCreateFolder = async () => {
+    if (!selectedFolderPath) return;
+    const name = prompt('Nombre de la carpeta nueva:');
+    if (!name) return;
+    const base = selectedFolderPath.endsWith('/') ? selectedFolderPath : selectedFolderPath + '/';
+    try {
+      const res = await fetch('/api/gestion-documental/mkdir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: base + name })
+      });
+      if (!res.ok) throw new Error('No se pudo crear la carpeta');
+      await openFolderInCanvas(selectedFolderPath, selectedFolderTitle);
+    } catch (e: any) {
+      setFolderError(e?.message || 'Error creando carpeta');
+    }
+  };
+
+  const handleCreateFile = async () => {
+    if (!selectedFolderPath) return;
+    const name = prompt('Nombre del archivo nuevo (ej: notas.md):');
+    if (!name) return;
+    const base = selectedFolderPath.endsWith('/') ? selectedFolderPath : selectedFolderPath + '/';
+    try {
+      const res = await fetch('/api/gestion-documental/create-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: base + name, content: '', contentType: contentTypeFromName(name) })
+      });
+      if (!res.ok) throw new Error('No se pudo crear el archivo');
+      await openFolderInCanvas(selectedFolderPath, selectedFolderTitle);
+    } catch (e: any) {
+      setFolderError(e?.message || 'Error creando archivo');
+    }
+  };
+
+  const triggerUpload = () => {
+    uploadInputRef.current?.click();
+  };
+
+  const handleUploadChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedFolderPath) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.set('path', selectedFolderPath);
+      form.set('file', file);
+      const res = await fetch('/api/gestion-documental/upload', { method: 'POST', body: form });
+      if (!res.ok) throw new Error('No se pudo subir el archivo');
+      await openFolderInCanvas(selectedFolderPath, selectedFolderTitle);
+    } catch (e: any) {
+      setFolderError(e?.message || 'Error subiendo archivo');
+    } finally {
+      setUploading(false);
+      if (uploadInputRef.current) uploadInputRef.current.value = '';
+    }
   };
 
   const cards = useMemo(() => folders.map(f => {
@@ -166,10 +440,8 @@ export default function Documentacion() {
           <span className="text-xs text-white/60">{n} documentos</span>
         </div>
         <div className="mt-auto flex items-center justify-end gap-2 pt-4">
-          {hasGuide && (
-            <button onClick={() => openReadme(f.path, base)} className="text-xs px-3 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition">Ver guía</button>
-          )}
-          <a href={`/dashboard/gestion-documental?path=${encodeURIComponent(f.path)}`} className="text-xs px-3 py-1 rounded bg-[#ff6a00] text-white hover:bg-[#ff8a3b] transition">Abrir</a>
+          <button onClick={() => openReadme(f.path, base)} className="text-xs px-3 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition">Ver guía</button>
+          <button onClick={() => openFolderInCanvas(f.path, base)} className="text-xs px-3 py-1 rounded bg-[#ff6a00] text-white hover:bg-[#ff8a3b] transition">Abrir</button>
         </div>
       </div>
     );
@@ -217,13 +489,139 @@ export default function Documentacion() {
           ))}
         </div>
       )}
+
+      {confirmDeleteOpen && fileToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="w-[92vw] max-w-md bg-[#0b0f1a] border border-white/10 rounded-xl overflow-hidden shadow-xl">
+            <div className="px-4 py-3 border-b border-white/10">
+              <h4 className="text-white font-semibold text-sm">Eliminar archivo</h4>
+            </div>
+            <div className="p-4 text-sm text-white/80">
+              <p className="mb-2">¿Seguro que deseas eliminar el archivo <span className="font-mono">{fileToDelete.name}</span>? Esta acción no se puede deshacer.</p>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-white/10">
+              <button onClick={() => { setConfirmDeleteOpen(false); setFileToDelete(null); }} className="text-xs px-3 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition">Cancelar</button>
+              <button onClick={handleDeleteFile} className="text-xs px-3 py-1 rounded bg-red-600 text-white hover:bg-red-500 transition">Eliminar</button>
+            </div>
+          </div>
+        </div>
+      )}
       {error && <div className="text-red-400">{error}</div>}
       {!loading && !error && folders.length === 0 && (
         <div className="text-white/60">No se encontraron carpetas en la raíz del bucket.</div>
       )}
-      {!loading && !error && folders.length > 0 && (
+      {!loading && !error && !selectedFolderPath && folders.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {cards}
+        </div>
+      )}
+
+      {/* Vista de carpeta abierta en canvas */}
+      {selectedFolderPath && (
+        <div className="holo-card rounded-xl p-4 mt-6">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-lg font-semibold text-white">{selectedFolderTitle}</h3>
+              <p className="text-xs text-white/60">{selectedFolderPath}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button className="text-xs px-3 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition" onClick={handleCreateFolder}>Crear carpeta</button>
+              <button className="text-xs px-3 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition" onClick={handleCreateFile}>Crear archivo</button>
+              <button disabled={uploading} className="text-xs px-3 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition disabled:opacity-50" onClick={triggerUpload}>{uploading ? 'Subiendo...' : 'Subir archivo'}</button>
+              <input ref={uploadInputRef} type="file" className="hidden" onChange={handleUploadChange} />
+              <button className="text-xs px-3 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition" onClick={() => { setSelectedFolderPath(null); setPreviewingFile(null); setIsEditing(false); }}>Volver</button>
+            </div>
+          </div>
+
+          {folderError && <div className="text-red-400 text-sm mb-2">{folderError}</div>}
+          {loadingFolder ? (
+            <div className="text-white/60 text-sm">Cargando carpeta...</div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* Lista de archivos */}
+              <div className="lg:col-span-1">
+                <div className="rounded-lg border border-white/10 bg-white/5 overflow-hidden">
+                  <div className="px-3 py-2 border-b border-white/10 text-xs text-white/60">Archivos</div>
+                  <ul className="max-h-[60vh] overflow-y-auto divide-y divide-white/5">
+                    {folderFiles.map(f => (
+                      <li key={f.path} className="px-3 py-2 text-sm flex items-center justify-between hover:bg-white/5">
+                        <button
+                          className="text-left truncate flex-1 pr-2"
+                          title={f.name}
+                          onClick={() => handleFileClick(f)}
+                          onDoubleClick={() => handleFileDoubleClick(f)}
+                        >
+                          {f.name}
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <a
+                            className="text-xs text-white/60 hover:text-white"
+                            title="Descargar"
+                            href={`#`}
+                            onClick={async (e) => { e.preventDefault(); try { const s = await getSignedUrl(f.path); window.open(s, '_blank'); } catch {} }}
+                          >⬇️</a>
+                        </div>
+                      </li>
+                    ))}
+                    {folderFiles.length === 0 && (
+                      <li className="px-3 py-3 text-sm text-white/60">No hay archivos</li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Panel de previsualización / edición */}
+              <div className="lg:col-span-2">
+                <div className="rounded-lg border border-white/10 bg-white/5 overflow-hidden">
+                  <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
+                    <div className="text-xs text-white/60 truncate">
+                      {previewingFile ? previewingFile.name : isEditing ? 'Editor' : 'Selecciona un archivo'}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {previewingFile && !isEditing && (
+                        <a className="text-xs px-2 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition" href={previewUrl} target="_blank" rel="noreferrer">Abrir pestaña</a>
+                      )}
+                      {previewingFile && !isEditing && (
+                        <button className="text-xs px-2 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition" onClick={async () => { try { const s = await getSignedUrl(previewingFile.path); window.open(s, '_blank'); } catch {} }}>Descargar</button>
+                      )}
+                      {previewingFile && !isEditing && (
+                        <button className="text-xs px-2 py-1 rounded border border-red-400/40 text-red-300 hover:bg-red-500/10 transition" onClick={() => { setFileToDelete(previewingFile); setConfirmDeleteOpen(true); }}>Eliminar</button>
+                      )}
+                      {previewingFile && !isEditing && (
+                        <button className="text-xs px-2 py-1 rounded bg-[#ff6a00] text-white hover:bg-[#ff8a3b] transition" onClick={() => isEditable(previewingFile.name) ? handleFileDoubleClick(previewingFile) : null}>Editar</button>
+                      )}
+                      {isEditing && (
+                        <>
+                          <button disabled={saving} className="text-xs px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-500 transition disabled:opacity-50" onClick={handleSave}>{saving ? 'Guardando...' : 'Guardar'}</button>
+                          <button disabled={saving} className="text-xs px-2 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition disabled:opacity-50" onClick={handleDiscard}>Descartar</button>
+                          {previewingFile && (
+                            <button disabled={saving} className="text-xs px-2 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition" onClick={async () => { try { const s = await getSignedUrl(previewingFile.path); window.open(s, '_blank'); } catch {} }}>Descargar</button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div className="p-0">
+                    {isEditing ? (
+                      <textarea className="w-full h-[60vh] bg-transparent p-3 text-sm outline-none text-white" value={editingContent} onChange={(e) => setEditingContent(e.target.value)} />
+                    ) : previewText ? (
+                      isMarkdown(previewingFile?.name) ? (
+                        <div className="w-full h-[60vh] overflow-auto bg-transparent p-3 text-sm">
+                          <MarkdownRenderer content={previewText} theme="dark" />
+                        </div>
+                      ) : (
+                        <pre className="w-full h-[60vh] overflow-auto bg-transparent p-3 text-sm text-white whitespace-pre-wrap">{previewText}</pre>
+                      )
+                    ) : previewUrl ? (
+                      <iframe src={previewUrl} className="w-full h-[60vh]" />
+                    ) : (
+                      <div className="p-6 text-white/60 text-sm">Selecciona un archivo para previsualizar o editar.</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -235,7 +633,17 @@ export default function Documentacion() {
               <button onClick={() => setModalOpen(false)} className="text-white/70 hover:text-white">✕</button>
             </div>
             <div className="p-0">
-              {modalUrl ? (
+              {modalLoading ? (
+                <div className="p-6 text-white/60 text-sm">Cargando guía...</div>
+              ) : modalText ? (
+                isMarkdown(modalUrl) ? (
+                  <div className="w-full h-[70vh] overflow-auto bg-transparent p-4 text-sm">
+                    <MarkdownRenderer content={modalText} theme="dark" />
+                  </div>
+                ) : (
+                  <pre className="w-full h-[70vh] overflow-auto bg-transparent p-4 text-sm text-white whitespace-pre-wrap">{modalText}</pre>
+                )
+              ) : modalUrl ? (
                 <iframe src={modalUrl} className="w-full h-[70vh]" />
               ) : (
                 <div className="p-6 text-white/70">No se pudo cargar la guía.</div>

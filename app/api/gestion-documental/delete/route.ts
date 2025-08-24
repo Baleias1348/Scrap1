@@ -5,6 +5,21 @@ const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_KEY = process.env.SUPABASE_KEY!; // service role
 const BUCKET = 'prevencion2';
 
+// Carpetas base protegidas: no se pueden eliminar
+const PROTECTED_FOLDERS = new Set<string>([
+  '01_reglamentos/',
+  '02_afiliacion_y_seguros/',
+  '03_comite_paritario/',
+  '04_matriz_riesgos/',
+  '05_capacitaciones/',
+  '06_emergencias/',
+  '07_accidentes_enfermedades/',
+  '08_trabajadores/',
+  '09_epp/',
+  '10_fiscalizaciones/',
+  '11_equipos_mantenimiento/',
+]);
+
 export async function POST(req: NextRequest) {
   try {
     const { path, isFolder } = await req.json();
@@ -14,6 +29,10 @@ export async function POST(req: NextRequest) {
 
     if (isFolder) {
       const prefix = path.endsWith('/') ? path : path + '/';
+      // Bloquear eliminación de carpetas base
+      if (PROTECTED_FOLDERS.has(prefix)) {
+        return NextResponse.json({ error: 'Carpeta protegida: no se puede eliminar' }, { status: 403 });
+      }
       const { data, error: listErr } = await supabase.storage.from(BUCKET).list(prefix, { limit: 1000 });
       if (listErr) return NextResponse.json({ error: listErr.message }, { status: 500 });
       const targets = (data || []).map((it: any) => (it.id === null ? prefix + it.name + '/' : prefix + it.name));
