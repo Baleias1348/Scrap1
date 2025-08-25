@@ -193,31 +193,29 @@ export default function Documentacion() {
     setModalLoading(true);
     setModalOpen(true);
     try {
-      let url = readmeUrls[folderPath];
-      if (!url) {
-        // Buscar README en el momento si no está precargado
-        const tryPaths = [`${folderPath}README.md`, `${folderPath}README.pdf`, `${folderPath}README.txt`];
-        for (const p of tryPaths) {
-          try {
-            const urlRes = await fetch(`/api/plantillas/file?path=${encodeURIComponent(p)}&expiresIn=600`);
-            if (urlRes.ok) {
-              const j = await urlRes.json();
-              if (j?.signedUrl) { url = j.signedUrl; break; }
-            }
-          } catch {}
-        }
+      // Siempre obtener una URL firmada fresca para evitar caché
+      let freshUrl = "";
+      const tryPaths = [`${folderPath}README.md`, `${folderPath}README.pdf`, `${folderPath}README.txt`];
+      for (const p of tryPaths) {
+        try {
+          const urlRes = await fetch(`/api/plantillas/file?path=${encodeURIComponent(p)}&expiresIn=600&_=${Date.now()}`, { cache: 'no-store' });
+          if (urlRes.ok) {
+            const j = await urlRes.json();
+            if (j?.signedUrl) { freshUrl = j.signedUrl; break; }
+          }
+        } catch {}
       }
-      setModalUrl(url || "");
-      if (!url) {
+      setModalUrl(freshUrl || "");
+      if (!freshUrl) {
         setModalText("");
         return;
       }
       // Si es markdown o texto, lo cargamos y renderizamos con MarkdownRenderer
-      const lower = url.toLowerCase();
+      const lower = freshUrl.toLowerCase();
       const isMd = lower.includes('readme.md');
       const isTxt = lower.endsWith('.txt');
       if (isMd || isTxt) {
-        const resp = await fetch(url);
+        const resp = await fetch(`${freshUrl}${freshUrl.includes('?') ? '&' : '?'}cb=${Date.now()}`, { cache: 'no-store' });
         const txt = await resp.text();
         setModalText(txt);
       } else {
