@@ -55,7 +55,7 @@ async function checkAuthAndOrg() {
       return;
     }
     const o = orgs[0] || {};
-    orgName = o.nombre_organizacion || o.razon_social || '(Sin nombre)';
+    orgName = o.nombre || o.nombre_organizacion || o.razon_social || '(Sin nombre)';
   } catch (e) {
     console.error('[Dashboard Public] organizaciones/mine error:', e);
     showOrgModal();

@@ -16,9 +16,10 @@ export async function POST(req: Request) {
     }
 
     const payload = await req.json();
-    const { nombre_organizacion, extras } = payload || {};
-    if (!nombre_organizacion || typeof nombre_organizacion !== 'string') {
-      return NextResponse.json({ error: 'nombre_organizacion es requerido' }, { status: 400 });
+    const rawNombre = payload?.nombre_organizacion ?? payload?.nombre;
+    const extras = payload?.extras;
+    if (!rawNombre || typeof rawNombre !== 'string') {
+      return NextResponse.json({ error: 'nombre_organizacion (o nombre) es requerido' }, { status: 400 });
     }
 
     const cookieStore = cookies();
@@ -32,7 +33,8 @@ export async function POST(req: Request) {
 
     const insertPayload: any = {
       user_id: userData.user.id,
-      nombre_organizacion,
+      // La columna real en la tabla es 'nombre'
+      nombre: rawNombre,
     };
     if (extras && typeof extras === 'object') {
       const allowedOptionalKeys = [

@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     if (!orgs || orgs.length === 0) {
       const { data: inserted, error: insErr } = await routeClient
         .from('organizaciones')
-        .insert({ nombre_organizacion: 'Organización 1', user_id: user.id })
+        .insert({ nombre: 'Organización 1', user_id: user.id })
         .select('*')
         .limit(1);
       if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
