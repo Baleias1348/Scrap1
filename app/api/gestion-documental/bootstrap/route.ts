@@ -102,9 +102,10 @@ export async function POST(req: NextRequest) {
         .storage
         .from(BUCKET)
         .upload(readmePath, new Blob([readmeContent], { type: 'text/markdown; charset=utf-8' }), {
-          upsert: true,
+          upsert: false,
           contentType: 'text/markdown; charset=utf-8',
         });
+      // Si ya existe, lo ignoramos para no sobreescribir contenido personalizado
       if (readmeErr && !String(readmeErr.message || '').includes('exists')) {
         return NextResponse.json({ error: `Error creando ${readmePath}: ${readmeErr.message}` }, { status: 500 });
       }

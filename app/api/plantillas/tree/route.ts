@@ -58,9 +58,10 @@ async function ensureStructure(supabase: ReturnType<typeof createClient>) {
       .storage
       .from(BUCKET)
       .upload(readmePath, new Blob([readmeContent], { type: 'text/markdown; charset=utf-8' }), {
-        upsert: true,
+        upsert: false,
         contentType: 'text/markdown; charset=utf-8',
       });
+    // Si ya existe, lo ignoramos para no sobreescribir contenido personalizado
     if (readmeErr && !String(readmeErr.message || '').includes('exists')) {
       throw new Error(`Error creando ${readmePath}: ${readmeErr.message}`);
     }
