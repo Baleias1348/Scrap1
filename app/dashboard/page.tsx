@@ -454,10 +454,10 @@ const [messages, setMessages] = useState<Message[]>([
             {/* Organización activa */}
             {requiresOrgSetup ? (
               <p className="text-xs text-white/60 mt-1">Sin organización. Crea una para continuar.</p>
-            ) : org?.nombre_organizacion ? (
+            ) : org ? (
               <div className="mt-2 inline-flex items-center gap-2 px-2 py-1 rounded-md bg-[#ff6a00]/15 border border-[#ff6a00]/40 text-[#ffb37a] text-xs max-w-full mx-auto" title={org?.id}>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 opacity-80"><path d="M3 7a2 2 0 012-2h3l2 2h9a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
-                <span className="truncate" style={{ maxWidth: '14rem' }}>Trabajando en: <span className="font-semibold text-[#ff8a3b]">{org?.nombre_organizacion}</span></span>
+                <span className="truncate" style={{ maxWidth: '14rem' }}>Trabajando en: <span className="font-semibold text-[#ff8a3b]">{(org as any)?.nombre || (org as any)?.razon_social || (org as any)?.nombre_organizacion || '(Sin nombre)'}</span></span>
               </div>
             ) : (
               <p className="text-xs text-white/60 mt-1">Cargando organización…</p>
