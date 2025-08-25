@@ -39,18 +39,28 @@ async function checkAuthAndOrg() {
     return;
   }
   hideAuthModal();
-  // 2. Check organization (simple: busca si user_id tiene organización)
+  // 2. Check organization vía endpoint interno (usa Service Role en servidor)
   const userId = session.user.id;
   userName = session.user.user_metadata?.name || session.user.email || 'Usuario';
   userEmail = session.user.email || '';
-  const { data: orgs, error } = await supabase.from('organizaciones').select('*').eq('user_id', userId).limit(1);
   let orgName = null;
-  if (!orgs || orgs.length === 0) {
+  try {
+    const resp = await fetch('/api/organizaciones/mine', { method: 'GET', credentials: 'include' });
+    const json = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(json?.error || `No se pudieron obtener organizaciones (HTTP ${resp.status})`);
+    const orgs = Array.isArray(json?.data) ? json.data : [];
+    if (!orgs || orgs.length === 0) {
+      showOrgModal();
+      updateUserOrgBar(userName, userEmail, null);
+      return;
+    }
+    const o = orgs[0] || {};
+    orgName = o.nombre_organizacion || o.razon_social || '(Sin nombre)';
+  } catch (e) {
+    console.error('[Dashboard Public] organizaciones/mine error:', e);
     showOrgModal();
     updateUserOrgBar(userName, userEmail, null);
     return;
-  } else {
-    orgName = orgs[0].nombre || orgs[0].razon_social || '(Sin nombre)';
   }
   hideOrgModal();
   updateUserOrgBar(userName, userEmail, orgName);
@@ -91,13 +101,20 @@ async function handleOrgCreate(e) {
   if (!orgName) return;
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return;
-  const userId = session.user.id;
-  const { error } = await supabase.from('organizaciones').insert([{ user_id: userId, nombre: orgName }]);
-  if (error) {
-    document.getElementById('orgError').textContent = error.message;
-  } else {
+  try {
+    const resp = await fetch('/api/organizaciones/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ nombre_organizacion: orgName }),
+    });
+    const json = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(json?.error || `No se pudo crear la organización (HTTP ${resp.status}${json?.code ? ', code ' + json.code : ''})`);
     hideOrgModal();
     mainContent.style.filter = '';
+  } catch (e) {
+    console.error('[Dashboard Public] crear organización error:', e);
+    document.getElementById('orgError').textContent = e?.message || 'Error creando organización';
   }
 }
 

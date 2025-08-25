@@ -15,17 +15,45 @@ export default function HomePage() {
   const { signUp, loginWithPassword } = useAuth();
   const router = useRouter();
 
+  React.useEffect(() => {
+    console.log('[UI] HomePage hydrated');
+    const handler = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null;
+      console.log('[UI] click event', { tag: t?.tagName, id: t?.id, cls: t?.className });
+    };
+    document.addEventListener('click', handler, true);
+    return () => document.removeEventListener('click', handler, true);
+  }, []);
+
   // Handlers
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('[UI] login:start');
     setLoading(true); setError(null);
     const { email, password } = loginData;
-    const res = await loginWithPassword(email, password);
-    setLoading(false);
-    if (res && 'error' in res && res.error) {
-      setError('Credenciales incorrectas');
-    } else {
-      router.replace('/dashboard');
+    // Watchdog para evitar quedarse colgado
+    const watchdog = setTimeout(() => {
+      console.error('[UI] login:timeout 15000ms');
+      setLoading(false);
+      setError('La solicitud está tardando más de lo esperado. Intenta nuevamente.');
+    }, 15000);
+    try {
+      const res = await loginWithPassword(email, password);
+      if (res && 'error' in res && res.error) {
+        const msg = (res.error?.message || '').toString();
+        console.error('[UI] login:error', { message: msg, code: (res.error as any)?.code });
+        setError(msg || 'Credenciales incorrectas');
+      } else {
+        console.log('[UI] login:success -> redirect /dashboard');
+        router.replace('/dashboard');
+      }
+    } catch (err: any) {
+      console.error('[UI] login:exception', err);
+      setError(err?.message || 'Error al iniciar sesión');
+    } finally {
+      clearTimeout(watchdog);
+      setLoading(false);
+      console.log('[UI] login:end');
     }
   };
 
@@ -55,34 +83,53 @@ export default function HomePage() {
     e.preventDefault();
     setLoading(true); setError(null);
     const { nombres, apellidos, email, password, cargo, telefono } = registerData;
-    const res = await signUp(email, password, { nombres, apellidos, cargo, telefono });
-    setLoading(false);
-    if (res && 'error' in res && res.error) {
-      setError('No se pudo registrar.');
-    } else {
-      // Registro exitoso: exigir inicio de sesión manual
-      setView('login');
-      setError(null);
+    console.log('[UI] register:start', { email });
+    // Watchdog para garantizar salida de estado de carga
+    const watchdog = setTimeout(() => {
+      console.error('[UI] register:timeout 20000ms');
+      setLoading(false);
+      setError('La solicitud está tardando más de lo esperado. Revisa tu conexión y vuelve a intentar.');
+    }, 20000);
+    try {
+      const res = await signUp(email, password, { nombres, apellidos, cargo, telefono });
+      if (res && 'error' in res && res.error) {
+        const msg = (res.error?.message || '').toString();
+        console.error('[UI] register:error', msg);
+        setError(msg || 'No se pudo registrar.');
+      } else {
+        console.log('[UI] register:success');
+        // Registro exitoso: exigir inicio de sesión manual
+        setView('login');
+        setError(null);
+      }
+    } catch (err: any) {
+      console.error('[UI] register:exception', err);
+      setError(err?.message || 'Error durante el registro.');
+    } finally {
+      clearTimeout(watchdog);
+      setLoading(false);
+      console.log('[UI] register:end');
     }
   };
 
 
 
   return (
-    <div className="antialiased selection:bg-white/10 selection:text-white text-white min-h-screen flex flex-col" style={{fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto"}}>
+    <div onClick={()=>console.log('[UI] root:onClick')}
+      className="antialiased selection:bg-white/10 selection:text-white text-white min-h-screen flex flex-col" style={{fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto"}}>
       {/* Header */}
       <header className="sticky top-0 z-30 backdrop-blur-md bg-neutral-950/70 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex h-16 text-2xl font-semibold text-[#ff6a00] items-center justify-between">
             <span>Preventi Flow</span>
             <nav className="hidden md:flex items-center gap-6 text-sm text-white/70">
-              <a href="#features" className="hover:text-white transition-colors">Conoce</a>
-              <a href="#cards" className="hover:text-white transition-colors">Documentación</a>
-              <a href="#insights" className="hover:text-white transition-colors">Asistencia</a>
+              <a href="#features" className="hover:text-white transition-colors" onClick={()=>console.log('[UI] click:nav-features')}>Conoce</a>
+              <a href="#cards" className="hover:text-white transition-colors" onClick={()=>console.log('[UI] click:nav-documentacion')}>Documentación</a>
+              <a href="#insights" className="hover:text-white transition-colors" onClick={()=>console.log('[UI] click:nav-asistencia')}>Asistencia</a>
             </nav>
             <div className="flex items-center gap-2">
-              <button onClick={()=>{ setView('login'); setLoading(false); setError(null); setResetOpen(false); }} className="hidden sm:inline-flex items-center h-9 hover:text-white hover:border-white/20 transition-colors text-sm text-white/80 border-white/10 border rounded-lg pr-3 pl-3">Iniciar sesión</button>
-              <button onClick={()=>{ setView('register'); setLoading(false); setError(null); setResetOpen(false); }} className="inline-flex items-center h-9 hover:bg-white/90 transition-colors text-sm font-medium text-slate-50 bg-[#ff6a00] border-[#ff6a00] rounded-lg pr-3 pl-3">Registrarse<span className="ml-1">→</span></button>
+              <button onClick={()=>{ console.log('[UI] click:header-login'); setView('login'); setLoading(false); setError(null); setResetOpen(false); }} className="hidden sm:inline-flex items-center h-9 hover:text-white hover:border-white/20 transition-colors text-sm text:white/80 border-white/10 border rounded-lg pr-3 pl-3">Iniciar sesión</button>
+              <button onClick={()=>{ console.log('[UI] click:header-register'); setView('register'); setLoading(false); setError(null); setResetOpen(false); }} className="inline-flex items-center h-9 hover:bg:white/90 transition-colors text-sm font-medium text-slate-50 bg-[#ff6a00] border-[#ff6a00] rounded-lg pr-3 pl-3">Registrarse<span className="ml-1">→</span></button>
             </div>
           </div>
         </div>
@@ -97,8 +144,8 @@ export default function HomePage() {
             <h1 className="sm:text-5xl md:text-6xl lg:text-7xl leading-tight text-4xl font-semibold text-[#ff6a00] tracking-tight">Preventi Flow<br className="hidden md:block" /></h1>
             <p className="sm:text-lg leading-relaxed -translate-x-16 text-base text-slate-50 mt-4 mr-20 ml-20">Automatiza todos tus procesos de gestión en la Prevención de Riesgos Laborales</p>
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
-              <button onClick={()=>{ setView('register'); setLoading(false); setError(null); setResetOpen(false); }} className="inline-flex items-center justify-center h-11 hover:bg-white/90 transition shadow-[0_2.8px_2.2px_rgba(0,_0,_0,_0.034),_0_6.7px_5.3px_rgba(0,_0,_0,_0.048),_0_12.5px_10px_rgba(0,_0,_0,_0.06),_0_22.3px_17.9px_rgba(0,_0,_0,_0.072),_0_41.8px_33.4px_rgba(0,_0,_0,_0.086),_0_100px_80px_rgba(0,_0,_0,_0.12)] text-sm font-bold text-slate-50 bg-slate-950 border-[#ff6a00] border-0 rounded-xl pr-4 pl-4">Crea una cuenta<svg width="18" height="18" viewBox="0 0 24 24" className="ml-1.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></button>
-              <button onClick={()=>{ setView('login'); setLoading(false); setError(null); setResetOpen(false); }} className="inline-flex items-center justify-center h-11 hover:text-white hover:border-white/20 transition shadow-[0px_0px_0px_1px_rgba(0,0,0,0.06),0px_1px_1px_-0.5px_rgba(0,0,0,0.06),0px_3px_3px_-1.5px_rgba(0,0,0,0.06),_0px_6px_6px_-3px_rgba(0,0,0,0.06),0px_12px_12px_-6px_rgba(0,0,0,0.06),0px_24px_24px_-12px_rgba(0,0,0,0.06)] text-sm text-white/90 border-white/10 border rounded-xl pr-4 pl-4 backdrop-blur-lg">Ingresa a tu dashboard<svg width="18" height="18" viewBox="0 0 24 24" className="ml-1.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg></button>
+              <button onClick={()=>{ console.log('[UI] click:hero-register'); setView('register'); setLoading(false); setError(null); setResetOpen(false); }} className="inline-flex items-center justify-center h-11 hover:bg:white/90 transition shadow-[0_2.8px_2.2px_rgba(0,_0,_0,_0.034),_0_6.7px_5.3px_rgba(0,_0,_0,_0.048),_0_12.5px_10px_rgba(0,_0,_0,_0.06),_0_22.3px_17.9px_rgba(0,_0,_0,_0.072),_0_41.8px_33.4px_rgba(0,_0,_0,_0.086),_0_100px_80px_rgba(0,_0,_0,_0.12)] text-sm font-bold text-slate-50 bg-slate-950 border-[#ff6a00] border-0 rounded-xl pr-4 pl-4">Crea una cuenta<svg width="18" height="18" viewBox="0 0 24 24" className="ml-1.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></button>
+              <button onClick={()=>{ console.log('[UI] click:hero-login'); setView('login'); setLoading(false); setError(null); setResetOpen(false); }} className="inline-flex items-center justify-center h-11 hover:text-white hover:border-white/20 transition shadow-[0px_0px_0px_1px_rgba(0,0,0,0.06),0px_1px_1px_-0.5px_rgba(0,0,0,0.06),0px_3px_3px_-1.5px_rgba(0,0,0,0.06),_0px_6px_6px_-3px_rgba(0,0,0,0.06),0px_12px_12px_-6px_rgba(0,0,0,0.06),0px_24px_24px_-12px_rgba(0,0,0,0.06)] text-sm text-white/90 border-white/10 border rounded-xl pr-4 pl-4 backdrop-blur-lg">Ingresa a tu dashboard<svg width="18" height="18" viewBox="0 0 24 24" className="ml-1.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg></button>
             </div>
             <div className="mt-6 flex items-center gap-4 text-xs text-white/60">
               <div className="flex -space-x-2"></div>

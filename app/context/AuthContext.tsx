@@ -46,6 +46,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Helper: timeout para evitar quedarse colgado si una promesa no resuelve
+  const withTimeout = async <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        console.error(`[timeout] ${label} excedió ${ms}ms`);
+        reject(new Error(`Timeout ${label}`));
+      }, ms);
+      promise
+        .then((val) => { clearTimeout(timer); resolve(val); })
+        .catch((err) => { clearTimeout(timer); reject(err); });
+    });
+  };
+
   // Inicializar autenticación
   useEffect(() => {
     // Obtener la sesión actual
@@ -68,30 +81,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (currentSession?.user) {
           try {
-            // Buscar organización activa
-            const { data: orgs, error } = await supabase
-              .from("organizaciones")
-              .select("*")
-              .eq("user_id", currentSession.user.id)
-              .order("created_at", { ascending: true });
-            
-            if (error) throw error;
-            
-            // Si no hay organizaciones, forzar creación vía UI (modal)
+            // Buscar organización activa vía API interna (usa service role)
+            const resp = await withTimeout(
+              fetch('/api/organizaciones/mine', { method: 'GET', credentials: 'include' }),
+              12000,
+              'api/organizaciones/mine'
+            );
+            const json = await resp.json().catch(() => ({}));
+            if (!resp.ok) throw new Error(json?.error || 'No se pudo obtener organizaciones');
+
+            const orgs = Array.isArray(json?.data) ? json.data : [];
             if (!orgs || orgs.length === 0) {
               setOrg(null);
               setRequiresOrgSetup(true);
             } else {
-              setOrg(orgs?.[0] || null);
+              setOrg(orgs[0] || null);
               setRequiresOrgSetup(false);
             }
-            
+
             // Guardar token en localStorage para compatibilidad
             if (currentSession.access_token) {
               localStorage.setItem('preventi_token', currentSession.access_token);
             }
           } catch (error) {
-            console.error('Error al cargar la organización:', error);
+            console.error('Error al cargar la organización (API):', error);
             setOrg(null);
           }
         } else {
@@ -114,21 +127,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSession(currentSession);
           setUser(currentSession.user);
           
-          // Cargar organización si existe
-          const { data: orgs, error: orgError } = await supabase
-            .from("organizaciones")
-            .select("*")
-            .eq("user_id", currentSession.user.id)
-            .order("created_at", { ascending: true });
-            
-          if (!orgError) {
-            if (!orgs || orgs.length === 0) {
-              setOrg(null);
-              setRequiresOrgSetup(true);
-            } else {
-              setOrg(orgs[0]);
-              setRequiresOrgSetup(false);
+          // Cargar organización si existe vía API interna
+          try {
+            const resp = await withTimeout(
+              fetch('/api/organizaciones/mine', { method: 'GET', credentials: 'include' }),
+              12000,
+              'api/organizaciones/mine:init'
+            );
+            const json = await resp.json().catch(() => ({}));
+            if (resp.ok) {
+              const orgs = Array.isArray(json?.data) ? json.data : [];
+              if (!orgs || orgs.length === 0) {
+                setOrg(null);
+                setRequiresOrgSetup(true);
+              } else {
+                setOrg(orgs[0] || null);
+                setRequiresOrgSetup(false);
+              }
             }
+          } catch (e) {
+            console.warn('Init: organizaciones no disponibles todavía:', e);
           }
         } else {
           setSession(null);
@@ -157,17 +175,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Registro con email/password
   const signUp = async (email: string, password: string, extra?: Record<string, any>) => {
     try {
-      // Asegurar que no quede una sesión previa (p.ej. Olivia) antes de registrar
-      try { await supabase.auth.signOut(); } catch {}
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: extra || {},
-        },
-      });
-      return { data, error };
+      console.log('[Auth] signUp:start', { email });
+      // Usar API interna para evitar bloqueos del navegador/extensiones
+      const resp = await withTimeout(
+        fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, extra: extra || {} }),
+        }),
+        15000,
+        'api/auth/signup'
+      );
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        console.error('[Auth] signUp:end error', json);
+        return { error: { message: json?.error || 'No se pudo registrar.' } } as any;
+      }
+      console.log('[Auth] signUp:end ok');
+      return { data: json?.data, error: null } as any;
     } catch (error) {
+      console.error('[Auth] signUp:error', error);
       return { error };
     }
   };
@@ -175,12 +202,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Login con email/password
   const loginWithPassword = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      return { data, error };
-    } catch (error) {
+      console.log('[Auth] login:start', { email });
+      const resp = await withTimeout(
+        fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        }),
+        15000,
+        'api/auth/login'
+      );
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        console.error('[Auth] login:end error', { status: resp.status, message: json?.error, code: json?.code });
+        return { error: { message: json?.error || 'No se pudo iniciar sesión', code: json?.code } } as any;
+      }
+      console.log('[Auth] login:end ok');
+      return { data: json?.data, error: null } as any;
+    } catch (error: any) {
+      console.error('[Auth] login:exception', error);
       return { error };
     }
   };
@@ -230,45 +270,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const createOrganization = async ({ nombre_organizacion, extras }: { nombre_organizacion: string; extras?: Record<string, any> }): Promise<Organization | null> => {
     if (!user) return null;
     try {
-      const id = (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : undefined;
-      const payload: any = {
-        user_id: user.id,
-        nombre_organizacion,
-      };
-      if (id) payload.id = id;
-      // Incluir campos opcionales conocidos si vienen en extras
-      const allowedOptionalKeys = [
-        'razon_social',
-        'rut',
-        'actividad_economica',
-        'direccion',
-        'encargado_nombre',
-        'encargado_apellido',
-      ] as const;
-      if (extras && typeof extras === 'object') {
-        for (const k of allowedOptionalKeys) {
-          const v = (extras as any)[k];
-          if (typeof v !== 'undefined' && v !== null && String(v).trim() !== '') {
-            if (k === 'rut') {
-              (payload as any)[k] = normalizeRut(String(v));
-            } else {
-              (payload as any)[k] = v;
-            }
-          }
-        }
+      const body: any = { nombre_organizacion, extras: { ...(extras || {}) } };
+      if (body.extras?.rut) {
+        body.extras.rut = normalizeRut(String(body.extras.rut));
       }
-      const { data, error } = await supabase
-        .from('organizaciones')
-        .insert(payload)
-        .select('*')
-        .limit(1);
-      if (error) throw error;
-      const created = data?.[0] || null;
+      console.log('[Auth] createOrganization:start', { nombre_organizacion, extras: Object.keys(body.extras || {}) });
+      const resp = await withTimeout(
+        fetch('/api/organizaciones/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          credentials: 'include',
+        }),
+        15000,
+        'api/organizaciones/create'
+      );
+      console.log('[Auth] createOrganization:resp', { status: resp.status });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        const msg = json?.error || 'No se pudo crear la organización';
+        console.error('[Auth] createOrganization:error', { status: resp.status, code: json?.code, details: json?.details, hint: json?.hint, msg });
+        throw new Error(`${msg} (HTTP ${resp.status}${json?.code ? `, code ${json.code}` : ''})`);
+      }
+      const created = json?.data || null;
       setOrg(created);
       setRequiresOrgSetup(false);
+      console.log('[Auth] createOrganization:ok', { id: created?.id });
       return created;
     } catch (e) {
-      console.error('Error creando organización:', e);
+      console.error('Error creando organización (API):', e);
       throw e;
     }
   };

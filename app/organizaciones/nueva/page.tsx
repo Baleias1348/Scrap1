@@ -62,20 +62,23 @@ function NuevaOrganizacionForm() {
       setLoading(false);
       return;
     }
-    const supabase = getSupabaseClient();
-    const { error: insertError } = await supabase.from("organizaciones").insert([
-      {
-        razon_social: razonSocial,
-        rut,
-        direccion,
-        rubro: rubro.descripcion,
-        cantidad_trabajadores: cantidadTrabajadores ? parseInt(cantidadTrabajadores) : null,
-        mutual,
-        sitio_web: sitioWeb,
-        logo_url: logoUrl,
-      },
-    ]);
-    if (!insertError) {
+    try {
+      const resp = await fetch('/api/organizaciones/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre_organizacion: razonSocial,
+          extras: {
+            rut: rut || undefined,
+            direccion: direccion || undefined,
+            actividad_economica: rubro?.descripcion || undefined,
+            // Campos adicionales locales no soportados por el endpoint se omiten
+          }
+        }),
+        credentials: 'include',
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error((json?.error ? `${json.error}` : 'No se pudo crear la organización') + ` (HTTP ${resp.status}${json?.code ? ", code " + json.code : ''})`);
       setSuccess("¡Organización creada exitosamente!");
       setRazonSocial("");
       setRut("");
@@ -86,8 +89,8 @@ function NuevaOrganizacionForm() {
       setMutual("");
       setSitioWeb("");
       setLogoUrl("");
-    } else {
-      setError("Error al crear la organización: " + insertError.message);
+    } catch (err: any) {
+      setError("Error al crear la organización: " + (err?.message || 'Error desconocido'));
     }
     setLoading(false);
   }

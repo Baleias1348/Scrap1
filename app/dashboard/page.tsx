@@ -126,6 +126,19 @@ const [messages, setMessages] = useState<Message[]>([
   const [orgEncargadoApellido, setOrgEncargadoApellido] = useState("");
   const [orgSubmitting, setOrgSubmitting] = useState(false);
   const [orgRutError, setOrgRutError] = useState<string | null>(null);
+  const [orgCreateError, setOrgCreateError] = useState<string | null>(null);
+
+  // Fallback: si por alguna razón el Race no muestra error y seguimos en submitting demasiado tiempo
+  useEffect(() => {
+    if (!orgSubmitting) return;
+    setOrgCreateError(null);
+    const t = setTimeout(() => {
+      if (orgSubmitting) {
+        setOrgCreateError('No recibimos respuesta del servidor. Verifica tu conexión y vuelve a intentar.');
+      }
+    }, 14000);
+    return () => clearTimeout(t);
+  }, [orgSubmitting]);
 
   // Valida RUT chileno: soporta formatos con puntos y guión. DV puede ser 0-9 o K.
   const validarRUT = (rutInput: string): boolean => {
@@ -156,20 +169,32 @@ const [messages, setMessages] = useState<Message[]>([
       return;
     }
     try {
+      console.log('[UI] handleCreateOrg:start');
       setOrgSubmitting(true);
-      await createOrganization({
-        nombre_organizacion: orgName.trim(),
-        extras: {
-          razon_social: orgRazonSocial || undefined,
-          rut: orgRut || undefined,
-          actividad_economica: orgActividad || undefined,
-          direccion: orgDireccion || undefined,
-          encargado_nombre: orgEncargadoNombre || undefined,
-          encargado_apellido: orgEncargadoApellido || undefined,
-        },
-      });
+      setOrgCreateError(null);
+      // Watchdog: si tarda > 12s, mostramos error amigable
+      const watchdog = new Promise((_, reject) => setTimeout(() => reject(new Error('La creación está tardando demasiado. Intenta nuevamente.')), 12000));
+      await Promise.race([
+        createOrganization({
+          nombre_organizacion: orgName.trim(),
+          extras: {
+            razon_social: orgRazonSocial || undefined,
+            rut: orgRut || undefined,
+            actividad_economica: orgActividad || undefined,
+            direccion: orgDireccion || undefined,
+            encargado_nombre: orgEncargadoNombre || undefined,
+            encargado_apellido: orgEncargadoApellido || undefined,
+          },
+        }),
+        watchdog,
+      ]);
+      console.log('[UI] handleCreateOrg:end ok');
+    } catch (err: any) {
+      console.error('[Dashboard] createOrganization error:', err);
+      setOrgCreateError(err?.message || 'No se pudo crear la organización.');
     } finally {
       setOrgSubmitting(false);
+      console.log('[UI] handleCreateOrg:finally');
     }
   };
 
@@ -379,6 +404,9 @@ const [messages, setMessages] = useState<Message[]>([
                   {orgSubmitting ? 'Creando…' : 'Crear organización'}
                 </button>
               </div>
+              {orgCreateError && (
+                <p className="mt-2 text-xs text-red-400">{orgCreateError}</p>
+              )}
             </form>
           </div>
         </div>
@@ -423,8 +451,16 @@ const [messages, setMessages] = useState<Message[]>([
               />
             )}
             <p className="text-base font-semibold text-white mt-3">{user?.user_metadata?.full_name || user?.email || 'Usuario'}</p>
-            {org?.nombre_organizacion && (
-              <p className="text-xs text-white/60" title={org?.id}>Org: {org?.nombre_organizacion}</p>
+            {/* Organización activa */}
+            {requiresOrgSetup ? (
+              <p className="text-xs text-white/60 mt-1">Sin organización. Crea una para continuar.</p>
+            ) : org?.nombre_organizacion ? (
+              <div className="mt-2 inline-flex items-center gap-2 px-2 py-1 rounded-md bg-[#ff6a00]/15 border border-[#ff6a00]/40 text-[#ffb37a] text-xs max-w-full mx-auto" title={org?.id}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 opacity-80"><path d="M3 7a2 2 0 012-2h3l2 2h9a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+                <span className="truncate" style={{ maxWidth: '14rem' }}>Trabajando en: <span className="font-semibold text-[#ff8a3b]">{org?.nombre_organizacion}</span></span>
+              </div>
+            ) : (
+              <p className="text-xs text-white/60 mt-1">Cargando organización…</p>
             )}
           </div>
         </div>
