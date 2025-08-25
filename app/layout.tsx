@@ -1,6 +1,5 @@
 // Forzar build Netlify: 2025-08-13
 import "./globals.css";
-import "./standalone-dashboard.css";
 
 export const metadata = {
   title: "Preventi Flow",

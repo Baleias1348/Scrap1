@@ -61,7 +61,9 @@ export default function Documentacion() {
   const [folderError, setFolderError] = useState<string | null>(null);
   const [previewingFile, setPreviewingFile] = useState<TreeItem & { size?: number|null, updated_at?: string|null } | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewText, setPreviewText] = useState<string>("");
+  const [previewRetry, setPreviewRetry] = useState<number>(0);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [editingContent, setEditingContent] = useState<string>("");
   const [saving, setSaving] = useState<boolean>(false);
@@ -130,6 +132,29 @@ export default function Documentacion() {
         setLoading(false);
       }
     };
+
+  const isImage = (nameOrUrl?: string | null) => {
+    if (!nameOrUrl) return false;
+    const n = nameOrUrl.toLowerCase();
+    return n.endsWith('.png') || n.endsWith('.jpg') || n.endsWith('.jpeg') || n.endsWith('.webp') || n.endsWith('.gif');
+  };
+
+  const isPdf = (nameOrUrl?: string | null) => {
+    if (!nameOrUrl) return false;
+    return nameOrUrl.toLowerCase().endsWith('.pdf');
+  };
+
+  const isVideo = (nameOrUrl?: string | null) => {
+    if (!nameOrUrl) return false;
+    const n = nameOrUrl.toLowerCase();
+    return n.endsWith('.mp4') || n.endsWith('.webm') || n.endsWith('.ogg');
+  };
+
+  const isAudio = (nameOrUrl?: string | null) => {
+    if (!nameOrUrl) return false;
+    const n = nameOrUrl.toLowerCase();
+    return n.endsWith('.mp3') || n.endsWith('.wav') || n.endsWith('.ogg');
+  };
     loadRoot();
   }, [basePrefix]);
 
@@ -198,6 +223,13 @@ export default function Documentacion() {
     }
     const parentPath = parts.join('/') + '/';
     const parentTitle = parts[parts.length - 1] || '';
+    // Si el padre coincide con basePrefix (orgs/<id>/), volvemos a la vista raíz (tarjetas)
+    if (basePrefix && parentPath === basePrefix) {
+      setSelectedFolderPath(null);
+      setPreviewingFile(null);
+      setIsEditing(false);
+      return;
+    }
     await openFolderInCanvas(parentPath, parentTitle);
   };
 
@@ -303,7 +335,7 @@ export default function Documentacion() {
   };
 
   const getSignedUrl = async (path: string, expiresIn = 600) => {
-    const urlRes = await fetch(`/api/plantillas/file?path=${encodeURIComponent(path)}&expiresIn=${expiresIn}`);
+    const urlRes = await fetch(`/api/plantillas/file?path=${encodeURIComponent(path)}&expiresIn=${expiresIn}&_=${Date.now()}`, { cache: 'no-store' });
     if (!urlRes.ok) throw new Error('No se pudo obtener URL firmada');
     const j = await urlRes.json();
     return j?.signedUrl as string;
@@ -311,11 +343,14 @@ export default function Documentacion() {
 
   const handleFileClick = async (file: TreeItem & { size?: number|null, updated_at?: string|null }) => {
     try {
+      setPreviewError(null);
       setPreviewingFile(file);
       setIsEditing(false);
       setEditingContent("");
       setPreviewText("");
       setXlsRows(null); setXlsSheetName(null); setXlsAllSheets(null);
+      // Reiniciar contador de reintento de preview
+      setPreviewRetry(0);
       // Priorizar visores tabulares (Excel/CSV) para un clic
       if (isExcel(file.name)) {
         const sUrl = await getSignedUrl(file.path, 900);
@@ -353,9 +388,9 @@ export default function Documentacion() {
         const sUrl = await getSignedUrl(file.path);
         setPreviewUrl(sUrl);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Preview error:', e);
-      setFolderError('No se pudo previsualizar el archivo');
+      setFolderError(`No se pudo previsualizar el archivo${e?.message ? `: ${e.message}` : ''}`);
     }
   };
 
@@ -609,7 +644,13 @@ export default function Documentacion() {
           <div className="flex items-center justify-between mb-3">
             <div>
               <h3 className="text-lg font-semibold text-white">{selectedFolderTitle}</h3>
-              <p className="text-xs text-white/60">{selectedFolderPath}</p>
+              <p className="text-xs text-white/60">
+                {(() => {
+                  const sp = selectedFolderPath || '';
+                  const rel = basePrefix ? sp.replace(basePrefix, '') : sp;
+                  return rel || '';
+                })()}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <button className="text-xs px-3 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition" onClick={handleCreateFolder}>Crear carpeta</button>
@@ -768,7 +809,36 @@ export default function Documentacion() {
                         </div>
                       </div>
                     ) : previewUrl ? (
-                      <iframe src={previewUrl} className="w-full h-[60vh]" />
+                      (() => {
+                        const name = previewingFile?.name || previewUrl;
+                        const commonProps = { className: 'w-full h-[60vh]' } as any;
+                        const onErr = async () => {
+                          try {
+                            if (!previewingFile) return setFolderError('No se pudo previsualizar el archivo');
+                            if (previewRetry >= 1) return setFolderError('No se pudo previsualizar el archivo');
+                            // Reintentar una vez generando una URL firmada fresca
+                            const fresh = await getSignedUrl(previewingFile.path, 900);
+                            setPreviewRetry((n) => n + 1);
+                            setPreviewUrl(fresh);
+                          } catch {
+                            setFolderError('No se pudo previsualizar el archivo');
+                          }
+                        };
+                        if (isImage(name)) {
+                          return <img src={previewUrl} alt={previewingFile?.name || 'imagen'} className="max-h-[60vh] w-auto" onError={onErr} />;
+                        }
+                        if (isPdf(name)) {
+                          return <iframe src={previewUrl} {...commonProps} onError={onErr} />;
+                        }
+                        if (isVideo(name)) {
+                          return <video src={previewUrl} controls {...commonProps} onError={onErr} />;
+                        }
+                        if (isAudio(name)) {
+                          return <audio src={previewUrl} controls className="w-full" onError={onErr} />;
+                        }
+                        // Fallback genérico
+                        return <iframe src={previewUrl} {...commonProps} onError={onErr} />;
+                      })()
                     ) : (
                       <div className="p-6 text-white/60 text-sm">Selecciona un archivo para previsualizar o editar.</div>
                     )}

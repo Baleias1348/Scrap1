@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.SUPABASE_URL!;
-const SUPABASE_KEY = process.env.SUPABASE_KEY!; // service role
+// Preferir variables seguras del backend
+const SUPABASE_URL = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 const BUCKET = 'prevencion2';
 
 // Predefined intelligent folders and minimal README contents
@@ -105,7 +106,15 @@ export async function GET(req: NextRequest) {
   const includeKeeps = (searchParams.get('includeKeeps') || 'false').toLowerCase() === 'true';
 
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    // Validación de variables de entorno requeridas
+    const missing: string[] = [];
+    if (!SUPABASE_URL) missing.push('SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL');
+    if (!SUPABASE_SERVICE_ROLE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+    if (missing.length > 0) {
+      return NextResponse.json({ error: 'Missing environment variables', missing }, { status: 500 });
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     let { data, error } = await supabase.storage.from(BUCKET).list(path, { limit: 1000 });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

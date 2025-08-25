@@ -1,5 +1,5 @@
 "use client";
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
 import type { Session, User } from '@supabase/supabase-js';
@@ -33,9 +33,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [org, setOrg] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
-  const [requiresOrgSetup, setRequiresOrgSetup] = useState(false);
+  const [requiresOrgSetup, setRequiresOrgSetup] = useState(true);
   const supabase = createClientComponentClient();
   const router = useRouter();
+  // Flags para evitar envíos duplicados y control de cancelación
+  const signupInFlight = useRef(false);
+  const signupAbortRef = useRef<AbortController | null>(null);
+  const loginInFlight = useRef(false);
+  const loginAbortRef = useRef<AbortController | null>(null);
 
   // Normaliza RUT: quita puntos/guiones y convierte DV a mayúscula.
   const normalizeRut = (rut: string): string => {
@@ -80,6 +85,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch {}
         
         if (currentSession?.user) {
+          // Hasta confirmar org, exigir setup por defecto
+          setRequiresOrgSetup(true);
           try {
             // Buscar organización activa vía API interna (usa service role)
             const resp = await withTimeout(
@@ -106,10 +113,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } catch (error) {
             console.error('Error al cargar la organización (API):', error);
             setOrg(null);
+            // En caso de error, mantener bloqueo
+            setRequiresOrgSetup(true);
           }
         } else {
           setOrg(null);
           localStorage.removeItem('preventi_token');
+          // Sin usuario autenticado, no exigimos org
+          setRequiresOrgSetup(false);
         }
         
         setLoading(false);
@@ -126,6 +137,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (currentSession) {
           setSession(currentSession);
           setUser(currentSession.user);
+          // Hasta confirmar org en init, exigir setup
+          setRequiresOrgSetup(true);
           
           // Cargar organización si existe vía API interna
           try {
@@ -147,11 +160,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           } catch (e) {
             console.warn('Init: organizaciones no disponibles todavía:', e);
+            // En caso de error, mantener bloqueo
+            setRequiresOrgSetup(true);
           }
         } else {
           setSession(null);
           setUser(null);
           setOrg(null);
+          setRequiresOrgSetup(false);
         }
       } catch (error) {
         console.error('Error al verificar la sesión:', error);
@@ -167,6 +183,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (subscription) {
         subscription.unsubscribe();
       }
+      // Cancelar cualquier request pendiente en desmontaje
+      try { signupAbortRef.current?.abort(); } catch {}
+      try { loginAbortRef.current?.abort(); } catch {}
     };
   }, [supabase.auth]);
 
@@ -176,12 +195,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (email: string, password: string, extra?: Record<string, any>) => {
     try {
       console.log('[Auth] signUp:start', { email });
+      if (signupInFlight.current) {
+        return { error: { message: 'Operación en curso' } } as any;
+      }
+      signupInFlight.current = true;
+      // Cancelar intento previo si existe
+      try { signupAbortRef.current?.abort(); } catch {}
+      signupAbortRef.current = new AbortController();
       // Usar API interna para evitar bloqueos del navegador/extensiones
       const resp = await withTimeout(
         fetch('/api/auth/signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password, extra: extra || {} }),
+          signal: signupAbortRef.current.signal,
         }),
         15000,
         'api/auth/signup'
@@ -197,17 +224,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('[Auth] signUp:error', error);
       return { error };
     }
+    finally {
+      signupInFlight.current = false;
+      signupAbortRef.current = null;
+    }
   };
 
   // Login con email/password
   const loginWithPassword = async (email: string, password: string) => {
     try {
       console.log('[Auth] login:start', { email });
+      if (loginInFlight.current) {
+        return { error: { message: 'Operación en curso' } } as any;
+      }
+      loginInFlight.current = true;
+      // Cancelar intento previo si existe
+      try { loginAbortRef.current?.abort(); } catch {}
+      loginAbortRef.current = new AbortController();
       const resp = await withTimeout(
         fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),
+          signal: loginAbortRef.current.signal,
         }),
         15000,
         'api/auth/login'
@@ -222,6 +261,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       console.error('[Auth] login:exception', error);
       return { error };
+    }
+    finally {
+      // Mantener un pequeño lock; lo liberamos tras un tick por si el UI intenta reintentar de inmediato
+      setTimeout(() => { loginInFlight.current = false; }, 1000);
+      loginAbortRef.current = null;
     }
   };
 
