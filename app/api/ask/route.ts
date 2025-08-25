@@ -64,18 +64,18 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Timeout alcanzado en llamada a Gemini')), ms))
   ]);
 }
-// Obtener constitución dinámica
-async function obtenerConstitucionAgente(supabase: any, nombreAgente: string): Promise<string> {
+// Obtener constitución dinámica + metadata
+async function obtenerConstitucionAgente(supabase: any, nombreAgente: string): Promise<{ constitucion: string, metadata?: any }> {
   const { data, error } = await supabase
     .from('constituciones_agente')
-    .select('constitucion')
+    .select('constitucion, metadata')
     .eq('nombre_agente', nombreAgente)
     .order('fecha_actualizacion', { ascending: false })
     .limit(1);
   if (error || !data || data.length === 0) {
     throw new Error('No se encontró la constitución del agente en la base de datos.');
   }
-  return data[0].constitucion;
+  return { constitucion: data[0].constitucion, metadata: (data[0] as any).metadata };
 }
 
 export async function POST(req: NextRequest) {
@@ -98,8 +98,11 @@ export async function POST(req: NextRequest) {
 
     // Obtener constitución dinámica
     let constitucionAgente = '';
+    let constitucionMetadata: any = null;
     try {
-      constitucionAgente = await obtenerConstitucionAgente(supabase, 'A.R.I.A.');
+      const res = await obtenerConstitucionAgente(supabase, 'A.R.I.A.');
+      constitucionAgente = res.constitucion;
+      constitucionMetadata = res.metadata || null;
     } catch (e: any) {
       return NextResponse.json({ error: e.message || 'No se pudo obtener la constitución del agente.' }, { status: 500 });
     }
@@ -143,7 +146,17 @@ export async function POST(req: NextRequest) {
         `Código Económico #${idx+1}: ${c.codigo}\nDescripción: ${c.descripcion}\nCategoría Tributaria: ${c.categoria_tributaria}\nAfecto IVA: ${c.afecto_iva}\nDisponible Internet: ${c.disponible_internet}`
       ).join('\n\n');
     }
-    let prompt = question; // Solo la pregunta, sin constitución ni contexto
+    // Construir prompt con constitución + metadata + pregunta
+    const principles = Array.isArray(constitucionMetadata?.principles) ? `Principios rectores: ${constitucionMetadata.principles.join(', ')}` : '';
+    const legalFocus = Array.isArray(constitucionMetadata?.legal_focus) ? `Enfoque legal prioritario: ${constitucionMetadata.legal_focus.join(', ')}` : '';
+    const header = [
+      'Eres el asistente A.R.I.A. Responde en español, de forma profesional, precisa y accionable.',
+      constitucionAgente?.trim() || '',
+      principles,
+      legalFocus,
+    ].filter(Boolean).join('\n\n');
+
+    let prompt = `${header}\n\nPregunta del usuario:\n${question}`;
     console.log('[API/ASK] Prompt enviado a Gemini:', prompt);
 
     let answer = '';

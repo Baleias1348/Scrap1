@@ -1,6 +1,10 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
-import { Send } from "lucide-react";
+import { Send, Copy } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeSanitize from "rehype-sanitize";
+import { useModelRouter } from "../../src/lib/ai/useModelRouter";
 
 interface Message {
   id: number;
@@ -9,6 +13,8 @@ interface Message {
 }
 
 export default function ChatWindow() {
+  const [chatContext, setChatContext] = useState<"chat" | "fast_interactions" | "compliance" | "documents">("chat");
+  const { model, mode, isLoading: modelLoading, error: modelError } = useModelRouter(chatContext);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
@@ -19,33 +25,157 @@ export default function ChatWindow() {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Normalize Markdown for display (do not mutate stored text)
+  const normalizeMarkdown = (text: string) => {
+    if (!text) return text;
+    let t = text;
+    // Ensure headings start at line-begin
+    t = t.replace(/([^\n])\s*(#{1,6}\s)/g, "$1\n\n$2");
+    // Ensure list markers start on new line
+    t = t.replace(/([^\n])\s*(-\s)/g, "$1\n$2");
+    t = t.replace(/([^\n])\s*(\d+\.\s)/g, "$1\n$2");
+    return t;
+  };
+
+  const resetToInitial = () => {
+    setMessages([
+      {
+        id: 1,
+        sender: "assistant",
+        text: "Hola, Olivia. Estoy listo para ayudarte. ¿Qué necesitas hoy?",
+      },
+    ]);
+  };
+
+  const handleReset = async () => {
+    try {
+      abortRef.current?.abort();
+      setLoading(false);
+      await fetch("/api/chat/reset-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: "dashboard" }),
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      resetToInitial();
+    }
+  };
 
   // Auto scroll al último mensaje
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) return;
     const newMessage: Message = {
       id: messages.length + 1,
       sender: "user",
       text: input.trim(),
     };
-    setMessages([...messages, newMessage]);
+    setMessages((prev) => [...prev, newMessage, { id: newMessage.id + 1, sender: "assistant", text: "" }]);
     setInput("");
 
-    // Simulación de respuesta del asistente (remplazar por API)
-    setTimeout(() => {
-      setMessages((prev: Message[]) => [
-        ...prev,
-        {
-          id: prev.length + 1,
-          sender: "assistant",
-          text: "Procesando tu consulta... 🚀",
-        },
-      ]);
-    }, 800);
+    // Endpoint switch: streaming vs standard
+    try {
+      setLoading(true);
+      if ((mode || "streaming") === "streaming") {
+        // Streaming SSE desde /api/ask/stream
+        abortRef.current?.abort();
+        const controller = new AbortController();
+        abortRef.current = controller;
+        const res = await fetch("/api/ask/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: newMessage.text, sessionId: "dashboard", useCase: chatContext }),
+          signal: controller.signal,
+        });
+        if (!res.ok || !res.body) throw new Error("No stream body");
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        const appendToAssistant = (chunk: string) => {
+          setMessages((prev) => {
+            const copy = [...prev];
+            const lastIdx = copy.length - 1;
+            copy[lastIdx] = { ...copy[lastIdx], text: copy[lastIdx].text + chunk };
+            return copy;
+          });
+        };
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() || "";
+          for (const part of parts) {
+            if (part.startsWith("event: chunk")) {
+              const dataLine = part.split("\n").find((l) => l.startsWith("data:"));
+              if (!dataLine) continue;
+              let payload = dataLine.slice(5); // after 'data:'
+              if (payload.startsWith(' ')) payload = payload.slice(1);
+              let chunkStr = payload;
+              // Support JSON payloads: { chunk: "..." }
+              if (payload.startsWith('{')) {
+                try {
+                  const obj = JSON.parse(payload);
+                  if (typeof obj?.chunk === 'string') chunkStr = obj.chunk;
+                } catch {}
+              }
+              appendToAssistant(chunkStr);
+            }
+            else if (part.startsWith("event: error")) {
+              const dataLine = part.split("\n").find((l) => l.startsWith("data:"));
+              if (!dataLine) continue;
+              let payload = dataLine.slice(5);
+              if (payload.startsWith(' ')) payload = payload.slice(1);
+              let errText = 'Error desconocido';
+              try {
+                const obj = JSON.parse(payload);
+                errText = obj?.error || errText;
+              } catch {
+                errText = payload;
+              }
+              appendToAssistant(`\n\n[Error] ${errText}`);
+            }
+          }
+        }
+      } else {
+        // Non-streaming
+        const res = await fetch("/api/ask/standard", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: newMessage.text, sessionId: "dashboard", useCase: chatContext }),
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          setMessages((prev) => {
+            const copy = [...prev];
+            const lastIdx = copy.length - 1;
+            copy[lastIdx] = { ...copy[lastIdx], text: `Error: ${text || res.status}` };
+            return copy;
+          });
+          return;
+        }
+        const data = await res.json();
+        const text = data?.text || "";
+        setMessages((prev) => {
+          const copy = [...prev];
+          const lastIdx = copy.length - 1;
+          copy[lastIdx] = { ...copy[lastIdx], text };
+          return copy;
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -89,13 +219,43 @@ export default function ChatWindow() {
             )}
             {/* Burbujas */}
             <div
-              className={`px-4 py-2 rounded-2xl text-base leading-relaxed shadow max-w-[70%] ${
+              className={`group relative px-4 py-2 rounded-2xl text-base leading-relaxed shadow max-w-[70%] whitespace-pre-wrap break-words ${
                 msg.sender === "assistant"
                   ? "bg-black/40 text-white"
                   : "bg-gradient-to-r from-[#ff6a00] to-[#ff8c00] text-white"
               }`}
             >
-              {msg.text}
+              {msg.sender === "assistant" ? (
+                <div className="prose prose-invert prose-sm max-w-none">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeSanitize]}
+                    components={{
+                      pre: ({ node, ...p }) => (
+                        <pre className="max-h-[50vh] overflow-auto rounded-md" {...p} />
+                      ),
+                      code: ({ inline, className, children, ...p }) => (
+                        <code className={`${className || ''} ${inline ? '' : 'block'} break-words`} {...p}>
+                          {children}
+                        </code>
+                      )
+                    }}
+                  >
+                    {normalizeMarkdown(msg.text)}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                msg.text
+              )}
+              {msg.sender === "assistant" && (
+                <button
+                  title="Copiar respuesta"
+                  onClick={() => navigator.clipboard.writeText(msg.text)}
+                  className="hidden group-hover:flex absolute -top-3 -right-3 items-center gap-1 px-2 py-1 rounded-md text-xs bg-white/80 text-gray-800 border border-gray-300 hover:bg-white"
+                >
+                  <Copy className="w-3 h-3" /> Copiar
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -103,9 +263,19 @@ export default function ChatWindow() {
       </div>
 
       <div className="mt-4 flex items-end gap-2">
+        <select
+          className="px-2 py-2 rounded-xl border border-gray-300 bg-white text-gray-800"
+          value={chatContext}
+          onChange={(e) => setChatContext(e.target.value as any)}
+        >
+          <option value="chat">Chat</option>
+          <option value="fast_interactions">Interacciones rápidas</option>
+          <option value="compliance">Compliance</option>
+          <option value="documents">Documentos</option>
+        </select>
         <textarea
           ref={textareaRef}
-          className="flex-1 resize-none rounded-xl p-3 text-gray-900 text-base leading-relaxed border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500"
+          className="flex-1 resize-none rounded-xl p-3 text-gray-900 placeholder-gray-600 text-base leading-relaxed border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500 bg-[#FFF1E6]"
           rows={1}
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -119,6 +289,25 @@ export default function ChatWindow() {
         >
           <Send className="w-5 h-5" />
         </button>
+        {loading && (
+          <button
+            onClick={() => { abortRef.current?.abort(); setLoading(false); }}
+            className="px-3 py-2 rounded-xl border border-gray-300 bg-white text-gray-700"
+          >
+            Cancelar
+          </button>
+        )}
+        <button
+          onClick={handleReset}
+          className="px-3 py-2 rounded-xl border border-gray-300 bg-white text-gray-700"
+        >
+          Reset contexto
+        </button>
+      </div>
+      <div className="mt-2 text-xs text-gray-300">
+        {modelLoading ? "Cargando configuración de modelo..." : (
+          modelError ? `Modo: streaming (fallback) — error: ${modelError}` : `Contexto: ${chatContext} — Modelo: ${model} — Modo: ${mode || 'streaming'}`
+        )}
       </div>
     </div>
   );

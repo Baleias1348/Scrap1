@@ -156,6 +156,39 @@ const [messages, setMessages] = useState<Message[]>([
     return () => window.removeEventListener('resize', update);
   }, []);
 
+  // Título y subtítulo dinámicos para el header según vista/menú activo
+  const pathnameHeader = usePathname() ?? '/';
+  let headerTitle = 'Dashboard';
+  let headerSubtitle = 'Resumen de performance';
+  if (showHistory) {
+    headerTitle = 'Conversaciones anteriores';
+    headerSubtitle = 'Historial del asistente';
+  } else if (showChat) {
+    headerTitle = 'Asistente AI';
+    headerSubtitle = 'Chat de asistencia';
+  } else if (showDocumentacion) {
+    headerTitle = 'Documents Flow';
+    headerSubtitle = 'Gestión documental';
+  } else if (pathnameHeader.startsWith('/dashboard/reports')) {
+    headerTitle = 'Reports';
+    headerSubtitle = 'Informes y métricas';
+  } else if (pathnameHeader.startsWith('/dashboard/plantillas')) {
+    headerTitle = 'Plantillas y Buenas Prácticas';
+    headerSubtitle = 'Recursos y guías';
+  } else if (pathnameHeader.startsWith('/dashboard/gestion-documental')) {
+    headerTitle = 'Documents Flow';
+    headerSubtitle = 'Flujo documental';
+  } else if (pathnameHeader.startsWith('/dashboard/empleados')) {
+    headerTitle = 'Empleados';
+    headerSubtitle = 'Gestión de personal';
+  } else if (pathnameHeader.startsWith('/dashboard/settings')) {
+    headerTitle = 'Settings';
+    headerSubtitle = 'Preferencias y configuración';
+  } else if (pathnameHeader.startsWith('/dashboard')) {
+    headerTitle = 'Dashboard';
+    headerSubtitle = 'Resumen de performance';
+  }
+
   return (
     <div className="flex h-screen text-white/80 overflow-hidden">
       {/* Overlay para móvil */}
@@ -217,6 +250,7 @@ const [messages, setMessages] = useState<Message[]>([
             {
               label: "Reports",
               href: "/dashboard/reports",
+              hidden: true,
               icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
               ),
@@ -224,6 +258,7 @@ const [messages, setMessages] = useState<Message[]>([
             {
               label: "Plantillas y Buenas Prácticas",
               href: "/dashboard/plantillas",
+              hidden: true,
               icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h9.5a2 2 0 0 1 1.414.586l3.5 3.5A2 2 0 0 1 21 8.5V19a2 2 0 0 1-2 2H6.5a2 2 0 0 1-1.5-.5"></path><path d="M14 3v4a1 1 0 0 0 1 1h4"></path><path d="M8 13h8"></path><path d="M8 17h6"></path></svg>
               ),
@@ -244,6 +279,13 @@ const [messages, setMessages] = useState<Message[]>([
               ),
             },
             {
+              label: "Reports",
+              href: "/dashboard/reports",
+              icon: (
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
+              ),
+            },
+            {
               label: "Settings",
               href: "/dashboard/settings",
               icon: (
@@ -253,8 +295,10 @@ const [messages, setMessages] = useState<Message[]>([
           ];
           const pathname = usePathname();
           const [hovered, setHovered] = useState<number|null>(null);
+          // Ocultar elementos marcados como hidden
+          const itemsToRender = (menuItems as any[]).filter((i: any) => !i.hidden);
           // Determinar el activo por ruta
-          const activeIdx = menuItems.findIndex(item => item.href && (pathname ?? '').startsWith(item.href));
+          const activeIdx = itemsToRender.findIndex(item => item.href && (pathname ?? '').startsWith(item.href));
           return (
             <nav className="flex flex-col gap-2 relative">
               {/* Indicador naranja translúcido animado */}
@@ -268,7 +312,7 @@ const [messages, setMessages] = useState<Message[]>([
               >
                 <div className="mx-0.5 h-10 rounded-lg bg-[#ff6a00]/20 border border-[#ff6a00]/50 transition-all duration-300" />
               </div>
-              {menuItems.map((item, idx) => (
+              {itemsToRender.map((item: any, idx: number) => (
                 item.isAIButton ? (
                   <div
                     key={item.label}
@@ -314,19 +358,26 @@ const [messages, setMessages] = useState<Message[]>([
                     </button>
                     <div className="absolute left-full top-0 ml-2 w-64 hidden group-hover:block z-10">
                       <div className="rounded-lg p-2 space-y-1 bg-[rgba(15,23,42,0.85)] backdrop-blur-lg border border-[#ff6a00]/20">
-                        <a
-                          href="/dashboard/gestion-documental"
-                          className="w-full inline-block text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors"
-                          onClick={() => { setShowDocumentacion(false); setSidebarOpen(false); }}
-                        >
-                          Ir a Gestión Documental
-                        </a>
                         <button
                           className="w-full text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors"
                           onClick={() => { setShowDocumentacion(true); setShowChat(false); setShowHistory(false); setSidebarOpen(false); }}
                         >
                           Documentación
                         </button>
+                        <a
+                          href="/dashboard/plantillas"
+                          className="w-full inline-block text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors"
+                          onClick={() => { setShowDocumentacion(false); setSidebarOpen(false); }}
+                        >
+                          Plantillas y Buenas Prácticas
+                        </a>
+                        <a
+                          href="/dashboard/gestion-documental"
+                          className="w-full inline-block text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors"
+                          onClick={() => { setShowDocumentacion(false); setSidebarOpen(false); }}
+                        >
+                          Gestión Documental
+                        </a>
                       </div>
                     </div>
                   </div>
@@ -367,8 +418,8 @@ const [messages, setMessages] = useState<Message[]>([
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12h16"></path><path d="M4 18h16"></path><path d="M4 6h16"></path></svg>
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-white font-orbitron">Dashboard</h1>
-              <p className="text-sm text-white/60">Resumen de performance</p>
+              <h1 className="text-2xl font-bold text-white font-orbitron">{headerTitle}</h1>
+              <p className="text-sm text-white/60">{headerSubtitle}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
