@@ -21,8 +21,7 @@
   --radius: 0.5rem;
 }
 
-/* Import Inter font */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+/* Inter se carga desde <head> en app/layout.tsx */
 
 /* Utility to apply Inter only where needed */
 .font-inter {
