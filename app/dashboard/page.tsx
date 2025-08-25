@@ -7,7 +7,8 @@
 
 "use client";
 import React, { useRef, useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "../context/AuthContext";
 import { Bar, Doughnut } from "react-chartjs-2";
 import ChatWindow from "../components/ChatWindow";
 import Documentacion from "../components/Documentacion";
@@ -76,6 +77,8 @@ const doughnutOptions = {
 };
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const { logout, user, org, requiresOrgSetup, createOrganization, loading: authLoading } = useAuth();
   // Menú de usuario
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   // Estado para historial de conversaciones
@@ -92,6 +95,8 @@ export default function DashboardPage() {
   const [showChat, setShowChat] = useState(false);
   // Documentación (vista de tarjetas)
   const [showDocumentacion, setShowDocumentacion] = useState(false);
+  // Hover del menú lateral
+  const [hovered, setHovered] = useState<number | null>(null);
   interface Message {
   id: string;
   sender: "user" | "assistant" | "loading";
@@ -106,25 +111,68 @@ const [messages, setMessages] = useState<Message[]>([
       sender: "assistant",
       name: "Asistente Preventi Flow",
       avatarUrl: "/assistant-avatar.png",
-      content: "Hola, Olivia. Estoy listo para ayudar. Puedo analizar informes, generar resúmenes de seguridad o encontrar datos de inspección. ¿Qué necesitas hoy?",
-    },
-    {
-      id: "2",
-      sender: "user",
-      name: "Olivia Martin",
-      avatarUrl: "https://i.pravatar.cc/150?u=a042581f4e29026704d",
-      content: "Genera un resumen de los incidentes de seguridad reportados en la 'Empresa 2' en el último trimestre.",
-    },
-    {
-      id: "3",
-      sender: "assistant",
-      name: "Asistente Preventi Flow",
-      avatarUrl: "/assistant-avatar.png",
-      content: "Claro. Analizando los datos de la 'Empresa 2' para el último trimestre... Un momento.",
+      content: "Hola, estoy listo para ayudar. Puedo analizar informes, generar resúmenes de seguridad o buscar documentos. ¿Qué necesitas hoy?",
     },
   ]);
   const [inputValue, setInputValue] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  // Estado modal creación de organización (primera vez)
+  const [orgName, setOrgName] = useState("");
+  const [orgRazonSocial, setOrgRazonSocial] = useState("");
+  const [orgRut, setOrgRut] = useState("");
+  const [orgActividad, setOrgActividad] = useState("");
+  const [orgDireccion, setOrgDireccion] = useState("");
+  const [orgEncargadoNombre, setOrgEncargadoNombre] = useState("");
+  const [orgEncargadoApellido, setOrgEncargadoApellido] = useState("");
+  const [orgSubmitting, setOrgSubmitting] = useState(false);
+  const [orgRutError, setOrgRutError] = useState<string | null>(null);
+
+  // Valida RUT chileno: soporta formatos con puntos y guión. DV puede ser 0-9 o K.
+  const validarRUT = (rutInput: string): boolean => {
+    if (!rutInput) return true; // vacío es aceptado (opcional)
+    const rut = rutInput.replace(/\./g, "").replace(/-/g, "").toUpperCase();
+    if (rut.length < 2) return false;
+    const cuerpo = rut.slice(0, -1);
+    const dv = rut.slice(-1);
+    if (!/^\d+$/.test(cuerpo)) return false;
+    let suma = 0;
+    let multiplicador = 2;
+    for (let i = cuerpo.length - 1; i >= 0; i--) {
+      suma += parseInt(cuerpo[i], 10) * multiplicador;
+      multiplicador = multiplicador === 7 ? 2 : multiplicador + 1;
+    }
+    const resto = suma % 11;
+    const dvCalcNum = 11 - resto;
+    const dvCalc = dvCalcNum === 11 ? '0' : dvCalcNum === 10 ? 'K' : String(dvCalcNum);
+    return dv === dvCalc;
+  };
+
+  const handleCreateOrg = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!orgName.trim()) return;
+    // Validación de RUT si fue ingresado
+    if (orgRut && !validarRUT(orgRut)) {
+      setOrgRutError('RUT inválido. Verifica el dígito verificador.');
+      return;
+    }
+    try {
+      setOrgSubmitting(true);
+      await createOrganization({
+        nombre_organizacion: orgName.trim(),
+        extras: {
+          razon_social: orgRazonSocial || undefined,
+          rut: orgRut || undefined,
+          actividad_economica: orgActividad || undefined,
+          direccion: orgDireccion || undefined,
+          encargado_nombre: orgEncargadoNombre || undefined,
+          encargado_apellido: orgEncargadoApellido || undefined,
+        },
+      });
+    } finally {
+      setOrgSubmitting(false);
+    }
+  };
+
   // Efecto holo-card
   const holoRefs = useRef<(HTMLDivElement | null)[]>([]);
   React.useEffect(() => {
@@ -189,8 +237,152 @@ const [messages, setMessages] = useState<Message[]>([
     headerSubtitle = 'Resumen de performance';
   }
 
+  // Ítems del menú lateral y cálculos asociados (fuera del render inline)
+  const menuItems = [
+    {
+      label: "Dashboard",
+      href: "/dashboard",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg>
+      ),
+    },
+    {
+      label: "Asistente AI",
+      isAIButton: true,
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"></path><path d="M20 2v4"></path><path d="M22 4h-4"></path><circle cx="4" cy="20" r="2"></circle></svg>
+      ),
+    },
+    {
+      label: "Reports",
+      href: "/dashboard/reports",
+      hidden: true,
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
+      ),
+    },
+    {
+      label: "Plantillas y Buenas Prácticas",
+      href: "/dashboard/plantillas",
+      hidden: true,
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h9.5a2 2 0 0 1 1.414.586l3.5 3.5A2 2 0 0 1 21 8.5V19a2 2 0 0 1-2 2H6.5a2 2 0 0 1-1.5-.5"></path><path d="M14 3v4a1 1 0 0 0 1 1h4"></path><path d="M8 13h8"></path><path d="M8 17h6"></path></svg>
+      ),
+    },
+    {
+      label: "Documents Flow",
+      href: "/dashboard/gestion-documental",
+      hasSubmenu: true,
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 5a2 2 0 0 1 2-2h8l6 6v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"></path><path d="M13 3v5a2 2 0 0 0 2 2h5"></path></svg>
+      ),
+    },
+    {
+      label: "Empleados",
+      href: "/dashboard/empleados",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></svg>
+      ),
+    },
+    {
+      label: "Reports",
+      href: "/dashboard/reports",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
+      ),
+    },
+    {
+      label: "Settings",
+      href: "/dashboard/settings",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"></path><circle cx="12" cy="12" r="3"></circle></svg>
+      ),
+    },
+  ];
+  const itemsToRender = (menuItems as any[]).filter((i: any) => !i.hidden);
+  const activeIdx = itemsToRender.findIndex(item => item.href && pathnameHeader.startsWith(item.href));
+  const ROW_H = 44;
+  const GAP = 8;
+  const STEP = ROW_H + GAP;
+  const indicatorIndex = hovered !== null ? hovered : activeIdx;
+
   return (
     <div className="flex h-screen text-white/80 overflow-hidden">
+      {/* Modal: creación de primera organización */}
+      {requiresOrgSetup && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/70" />
+          <div className="relative z-[101] w-full max-w-lg mx-4 rounded-2xl bg-[rgba(15,23,42,0.95)] border border-[#ff6a00]/30 p-6">
+            <h2 className="text-xl font-bold text-white mb-1">Crear organización</h2>
+            <p className="text-sm text-white/70 mb-4">Primero debes crear tu organización por defecto para continuar.</p>
+            <form onSubmit={handleCreateOrg} className="space-y-3">
+              <div>
+                <label className="block text-xs text-white/70 mb-1">Nombre de la organización<span className="text-red-400"> *</span></label>
+                <input
+                  className="w-full rounded-lg px-3 py-2 bg-black/30 border border-white/10 focus:outline-none focus:ring-2 focus:ring-[#ff6a00]"
+                  value={orgName}
+                  onChange={(e) => setOrgName(e.target.value)}
+                  placeholder="Ej: Constructora Andina"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-white/70 mb-1">Razón Social (opcional)</label>
+                  <input className="w-full rounded-lg px-3 py-2 bg-black/30 border border-white/10" value={orgRazonSocial} onChange={(e) => setOrgRazonSocial(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-xs text-white/70 mb-1">RUT (opcional)</label>
+                  <input
+                    className={`w-full rounded-lg px-3 py-2 bg-black/30 border ${orgRutError ? 'border-red-500' : 'border-white/10'}`}
+                    value={orgRut}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setOrgRut(val);
+                      if (!val) {
+                        setOrgRutError(null);
+                      } else {
+                        setOrgRutError(validarRUT(val) ? null : 'RUT inválido. Verifica el dígito verificador.');
+                      }
+                    }}
+                    placeholder="12.345.678-5"
+                  />
+                  {orgRutError && (
+                    <p className="mt-1 text-xs text-red-400">{orgRutError}</p>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-white/70 mb-1">Actividad Económica (opcional)</label>
+                <input className="w-full rounded-lg px-3 py-2 bg-black/30 border border-white/10" value={orgActividad} onChange={(e) => setOrgActividad(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs text-white/70 mb-1">Dirección (opcional)</label>
+                <input className="w-full rounded-lg px-3 py-2 bg-black/30 border border-white/10" value={orgDireccion} onChange={(e) => setOrgDireccion(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-white/70 mb-1">Encargado Prevención - Nombre (opcional)</label>
+                  <input className="w-full rounded-lg px-3 py-2 bg-black/30 border border-white/10" value={orgEncargadoNombre} onChange={(e) => setOrgEncargadoNombre(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-xs text-white/70 mb-1">Encargado Prevención - Apellido (opcional)</label>
+                  <input className="w-full rounded-lg px-3 py-2 bg-black/30 border border-white/10" value={orgEncargadoApellido} onChange={(e) => setOrgEncargadoApellido(e.target.value)} />
+                </div>
+              </div>
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="submit"
+                  disabled={!orgName.trim() || orgSubmitting}
+                  className={`px-4 py-2 rounded-lg text-white ${orgName.trim() ? 'bg-[#ff6a00] hover:bg-[#ff8a3b]' : 'bg-white/10 cursor-not-allowed'} transition`}
+                >
+                  {orgSubmitting ? 'Creando…' : 'Crear organización'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {/* Overlay para móvil */}
       {sidebarOpen && (
         <div
@@ -217,191 +409,135 @@ const [messages, setMessages] = useState<Message[]>([
         <div className="font-inter">
         <div className="relative group mb-8">
           <div className="p-4 rounded-lg bg-black/20 border border-white/5 text-center">
-            <img src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="User avatar" className="w-16 h-16 rounded-full mx-auto border-2 border-[#ff6a00]/50" />
-            <p className="text-base font-semibold text-white mt-3">Olivia Martin</p>
-            <p className="text-xs text-white/60">Prevención de Riesgos</p>
-            <label htmlFor="organization-select" className="block text-xs font-semibold text-white/60 text-left mt-4">Organización</label>
-            <select id="organization-select" className="w-full mt-1 text-xs form-input bg-black/20 border-white/10 p-2">
-              <option>Empresa 1</option>
-              <option>Empresa 2</option>
-              <option>Empresa 3</option>
-            </select>
+            {((user?.user_metadata as any)?.avatar_url || (user as any)?.picture) ? (
+              <img
+                src={(user?.user_metadata as any)?.avatar_url || (user as any)?.picture}
+                alt="User avatar"
+                className="w-16 h-16 rounded-full mx-auto border-2 border-[#ff6a00]/50 object-cover"
+              />
+            ) : (
+              <img
+                src={`https://i.pravatar.cc/150?u=${user?.id || 'guest'}`}
+                alt="User avatar"
+                className="w-16 h-16 rounded-full mx-auto border-2 border-[#ff6a00]/50 object-cover"
+              />
+            )}
+            <p className="text-base font-semibold text-white mt-3">{user?.user_metadata?.full_name || user?.email || 'Usuario'}</p>
+            {org?.nombre_organizacion && (
+              <p className="text-xs text-white/60" title={org?.id}>Org: {org?.nombre_organizacion}</p>
+            )}
           </div>
         </div>
         {/* Menú lateral */}
-        {(() => {
-          // Definir los ítems del menú
-          const menuItems = [
-            {
-              label: "Dashboard",
-              href: "/dashboard",
-              icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg>
-              ),
-            },
-            // El botón Asistente AI no es un link, sino un botón con submenú
-            {
-              label: "Asistente AI",
-              isAIButton: true,
-              icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"></path><path d="M20 2v4"></path><path d="M22 4h-4"></path><circle cx="4" cy="20" r="2"></circle></svg>
-              ),
-            },
-            {
-              label: "Reports",
-              href: "/dashboard/reports",
-              hidden: true,
-              icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
-              ),
-            },
-            {
-              label: "Plantillas y Buenas Prácticas",
-              href: "/dashboard/plantillas",
-              hidden: true,
-              icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h9.5a2 2 0 0 1 1.414.586l3.5 3.5A2 2 0 0 1 21 8.5V19a2 2 0 0 1-2 2H6.5a2 2 0 0 1-1.5-.5"></path><path d="M14 3v4a1 1 0 0 0 1 1h4"></path><path d="M8 13h8"></path><path d="M8 17h6"></path></svg>
-              ),
-            },
-            {
-              label: "Documents Flow",
-              href: "/dashboard/gestion-documental",
-              hasSubmenu: true,
-              icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 5a2 2 0 0 1 2-2h8l6 6v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"></path><path d="M13 3v5a2 2 0 0 0 2 2h5"></path></svg>
-              ),
-            },
-            {
-              label: "Empleados",
-              href: "/dashboard/empleados",
-              icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></svg>
-              ),
-            },
-            {
-              label: "Reports",
-              href: "/dashboard/reports",
-              icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
-              ),
-            },
-            {
-              label: "Settings",
-              href: "/dashboard/settings",
-              icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"></path><circle cx="12" cy="12" r="3"></circle></svg>
-              ),
-            },
-          ];
-          const pathname = usePathname();
-          const [hovered, setHovered] = useState<number|null>(null);
-          // Ocultar elementos marcados como hidden
-          const itemsToRender = (menuItems as any[]).filter((i: any) => !i.hidden);
-          // Determinar el activo por ruta
-          const activeIdx = itemsToRender.findIndex(item => item.href && (pathname ?? '').startsWith(item.href));
-          return (
-            <nav className="flex flex-col gap-2 relative">
-              {/* Indicador naranja translúcido animado */}
+        <nav className="flex flex-col gap-2 relative">
+          {/* Indicador naranja translúcido animado */}
+          <div
+            className="absolute left-0 w-full h-11 pointer-events-none transition-all duration-300"
+            style={{
+              top: `${indicatorIndex >= 0 ? indicatorIndex * STEP : 0}px`,
+              opacity: hovered !== null || activeIdx !== -1 ? 1 : 0,
+              zIndex: 0,
+            }}
+          >
+            <div className="mx-0.5 h-10 rounded-lg bg-[#ff6a00]/20 border border-[#ff6a00]/50 transition-all duration-300" />
+          </div>
+          {itemsToRender.map((item: any, idx: number) => (
+            item.isAIButton ? (
               <div
-                className="absolute left-0 w-full h-11 pointer-events-none transition-all duration-300"
-                style={{
-                  top: `${(hovered !== null ? hovered : activeIdx) * 48}px`,
-                  opacity: hovered !== null || activeIdx !== -1 ? 1 : 0,
-                  zIndex: 0,
-                }}
+                key={item.label}
+                className="group relative"
+                onMouseEnter={() => setHovered(idx)}
+                onMouseLeave={() => setHovered(null)}
               >
-                <div className="mx-0.5 h-10 rounded-lg bg-[#ff6a00]/20 border border-[#ff6a00]/50 transition-all duration-300" />
+                <button
+                  type="button"
+                  className={`flex items-center gap-3 w-full rounded-lg h-11 px-4 text-sm font-normal relative z-10 transition-colors duration-200 focus:outline-none ${
+                    (hovered === idx || activeIdx === idx) ? "text-[#ff6a00]" : "text-white/80 hover:text-[#ff6a00]"
+                  }`}
+                  aria-current={activeIdx === idx ? "page" : undefined}
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                  <svg className="w-4 h-4 ml-auto group-hover:rotate-90 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="6" y1="9" x2="18" y2="9"/><line x1="6" y1="15" x2="18" y2="15"/></svg>
+                </button>
+                <div
+                  className={`absolute left-full top-0 ml-2 w-56 z-10 transition-opacity ${hovered === idx ? 'visible opacity-100' : 'invisible opacity-0 pointer-events-none'}`}
+                  onMouseEnter={() => setHovered(idx)}
+                  onMouseLeave={() => setHovered(null)}
+                >
+                  <div className="rounded-lg p-2 space-y-1 bg-[rgba(15,23,42,0.85)] backdrop-blur-lg border border-[#ff6a00]/20">
+                    <button className="w-full text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors" onClick={() => { setShowChat(true); setSidebarOpen(false); setShowHistory(false); }}>Nueva conversación</button>
+                    <button className="w-full text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors" onClick={() => { setShowHistory(true); setSidebarOpen(false); }}>Conversaciones anteriores</button>
+                  </div>
+                </div>
               </div>
-              {itemsToRender.map((item: any, idx: number) => (
-                item.isAIButton ? (
-                  <div
-                    key={item.label}
-                    className="group relative"
-                    onMouseEnter={() => setHovered(idx)}
-                    onMouseLeave={() => setHovered(null)}
-                  >
+            ) : item.hasSubmenu ? (
+              <div
+                key={item.label}
+                className="group relative"
+                onMouseEnter={() => setHovered(idx)}
+                onMouseLeave={() => setHovered(null)}
+              >
+                <button
+                  type="button"
+                  className={`flex items-center gap-3 w-full rounded-lg h-11 px-4 text-sm font-normal relative z-10 transition-colors duration-200 focus:outline-none ${
+                    (hovered === idx || activeIdx === idx) ? "text-[#ff6a00]" : "text-white/80 hover:text-[#ff6a00]"
+                  }`}
+                  aria-current={activeIdx === idx ? "page" : undefined}
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                  <svg className="w-4 h-4 ml-auto group-hover:rotate-90 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="6" y1="9" x2="18" y2="9"/><line x1="6" y1="15" x2="18" y2="15"/></svg>
+                </button>
+                <div
+                  className={`absolute left-full top-0 ml-2 w-64 z-10 transition-opacity ${hovered === idx ? 'visible opacity-100' : 'invisible opacity-0 pointer-events-none'}`}
+                  onMouseEnter={() => setHovered(idx)}
+                  onMouseLeave={() => setHovered(null)}
+                >
+                  <div className="rounded-lg p-2 space-y-1 bg-[rgba(15,23,42,0.85)] backdrop-blur-lg border border-[#ff6a00]/20">
                     <button
-                      type="button"
-                      className={`flex items-center gap-3 w-full rounded-lg pt-2 pr-4 pb-2 pl-4 text-sm font-normal relative z-10 transition-colors duration-200 focus:outline-none ${
-                        (hovered === idx || activeIdx === idx) ? "text-[#ff6a00]" : "text-white/80 hover:text-[#ff6a00]"
-                      }`}
-                      aria-current={activeIdx === idx ? "page" : undefined}
+                      className="w-full text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors"
+                      onClick={() => { setShowDocumentacion(true); setShowChat(false); setShowHistory(false); setSidebarOpen(false); }}
                     >
-                      {item.icon}
-                      <span>{item.label}</span>
-                      <svg className="w-4 h-4 ml-auto group-hover:rotate-90 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="6" y1="9" x2="18" y2="9"/><line x1="6" y1="15" x2="18" y2="15"/></svg>
+                      Documentación
                     </button>
-                    <div className="absolute left-full top-0 ml-2 w-56 hidden group-hover:block z-10">
-                      <div className="rounded-lg p-2 space-y-1 bg-[rgba(15,23,42,0.85)] backdrop-blur-lg border border-[#ff6a00]/20">
-                        <button className="w-full text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors" onClick={() => { setShowChat(true); setSidebarOpen(false); setShowHistory(false); }}>Nueva conversación</button>
-                        <button className="w-full text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors" onClick={() => { setShowHistory(true); setSidebarOpen(false); }}>Conversaciones anteriores</button>
-                      </div>
-                    </div>
-                  </div>
-                ) : item.hasSubmenu ? (
-                  <div
-                    key={item.label}
-                    className="group relative"
-                    onMouseEnter={() => setHovered(idx)}
-                    onMouseLeave={() => setHovered(null)}
-                  >
-                    <button
-                      type="button"
-                      className={`flex items-center gap-3 w-full rounded-lg pt-2 pr-4 pb-2 pl-4 text-sm font-normal relative z-10 transition-colors duration-200 focus:outline-none ${
-                        (hovered === idx || activeIdx === idx) ? "text-[#ff6a00]" : "text-white/80 hover:text-[#ff6a00]"
-                      }`}
-                      aria-current={activeIdx === idx ? "page" : undefined}
+                    <a
+                      href="/dashboard/plantillas"
+                      className="w-full inline-block text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors"
+                      onClick={() => { setShowDocumentacion(false); setSidebarOpen(false); }}
                     >
-                      {item.icon}
-                      <span>{item.label}</span>
-                      <svg className="w-4 h-4 ml-auto group-hover:rotate-90 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="6" y1="9" x2="18" y2="9"/><line x1="6" y1="15" x2="18" y2="15"/></svg>
-                    </button>
-                    <div className="absolute left-full top-0 ml-2 w-64 hidden group-hover:block z-10">
-                      <div className="rounded-lg p-2 space-y-1 bg-[rgba(15,23,42,0.85)] backdrop-blur-lg border border-[#ff6a00]/20">
-                        <button
-                          className="w-full text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors"
-                          onClick={() => { setShowDocumentacion(true); setShowChat(false); setShowHistory(false); setSidebarOpen(false); }}
-                        >
-                          Documentación
-                        </button>
-                        <a
-                          href="/dashboard/plantillas"
-                          className="w-full inline-block text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors"
-                          onClick={() => { setShowDocumentacion(false); setSidebarOpen(false); }}
-                        >
-                          Plantillas y Buenas Prácticas
-                        </a>
-                        <a
-                          href="/dashboard/gestion-documental"
-                          className="w-full inline-block text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors"
-                          onClick={() => { setShowDocumentacion(false); setSidebarOpen(false); }}
-                        >
-                          Gestión Documental
-                        </a>
-                      </div>
-                    </div>
+                      Plantillas y Buenas Prácticas
+                    </a>
+                    <a
+                      href="/dashboard/gestion-documental"
+                      className="w-full inline-block text-left px-3 py-2 rounded-md hover:bg-white/5 transition-colors"
+                      onClick={() => { setShowDocumentacion(false); setSidebarOpen(false); }}
+                    >
+                      Gestión Documental
+                    </a>
                   </div>
-                ) : (
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    className={`flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-normal relative z-10 transition-colors duration-200 ${
-                      (hovered === idx || activeIdx === idx) ? "text-[#ff6a00]" : "text-white/80 hover:text-[#ff6a00]"
-                    }`}
-                    onMouseEnter={() => setHovered(idx)}
-                    onMouseLeave={() => setHovered(null)}
-                    onClick={() => { setShowDocumentacion(false); }}
-                    aria-current={activeIdx === idx ? "page" : undefined}
-                  >
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </a>
-                )
-              ))}
-            </nav>
-          );
-        })()}
+                </div>
+              </div>
+            ) : (
+              <a
+                key={item.label}
+                href={item.href}
+                className={`flex items-center gap-3 h-11 px-4 rounded-lg text-sm font-normal relative z-10 transition-colors duration-200 ${
+                  (hovered === idx || activeIdx === idx) ? "text-[#ff6a00]" : "text-white/80 hover:text-[#ff6a00]"
+                }`}
+                onMouseEnter={() => setHovered(idx)}
+                onMouseLeave={() => setHovered(null)}
+                onClick={() => { setShowDocumentacion(false); }}
+                aria-current={activeIdx === idx ? "page" : undefined}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </a>
+            )
+          ))}
+        </nav>
 
+        
         <div className="mt-auto" />
         </div>
       </aside>
@@ -453,7 +589,7 @@ const [messages, setMessages] = useState<Message[]>([
   <svg className="w-4 h-4 text-[#68d391]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 8a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 16 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 8c.13.16.24.33.33.51"/></svg>
   Configuración
 </button>
-<button className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-white/5 text-red-400 transition-colors" onClick={() => { setUserMenuOpen(false); /* lógica de logout aquí */ }}>
+<button className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-white/5 text-red-400 transition-colors" onClick={async () => { setUserMenuOpen(false); await logout(); router.replace('/'); }}>
   <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
   Logout
 </button>

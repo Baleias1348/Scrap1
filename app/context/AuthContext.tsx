@@ -18,6 +18,8 @@ interface AuthContextProps {
   loading: boolean;
   org: Organization | null;
   setOrg: (org: Organization | null) => void;
+  requiresOrgSetup: boolean;
+  createOrganization: (payload: { nombre_organizacion: string; extras?: Record<string, any> }) => Promise<Organization | null>;
   logout: () => Promise<void>;
   loginWithGoogle: (redirectTo?: string) => Promise<void>;
   signUp: (email: string, password: string, extra?: Record<string, any>) => Promise<{ error: any } | { data: any }>;
@@ -31,8 +33,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [org, setOrg] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
+  const [requiresOrgSetup, setRequiresOrgSetup] = useState(false);
   const supabase = createClientComponentClient();
   const router = useRouter();
+
+  // Normaliza RUT: quita puntos/guiones y convierte DV a mayúscula.
+  const normalizeRut = (rut: string): string => {
+    try {
+      return rut.replace(/\./g, '').replace(/-/g, '').toUpperCase();
+    } catch {
+      return rut;
+    }
+  };
 
   // Inicializar autenticación
   useEffect(() => {
@@ -41,6 +53,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (event: string, currentSession: Session | null) => {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
+        // Persistir trazabilidad del último usuario para depuración/aislamiento
+        try {
+          if (typeof window !== 'undefined') {
+            if (currentSession?.user) {
+              localStorage.setItem('preventi_last_user_id', currentSession.user.id);
+              localStorage.setItem('preventi_last_user_email', currentSession.user.email || '');
+            } else {
+              localStorage.removeItem('preventi_last_user_id');
+              localStorage.removeItem('preventi_last_user_email');
+            }
+          }
+        } catch {}
         
         if (currentSession?.user) {
           try {
@@ -53,7 +77,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             if (error) throw error;
             
-            setOrg(orgs?.[0] || null);
+            // Si no hay organizaciones, forzar creación vía UI (modal)
+            if (!orgs || orgs.length === 0) {
+              setOrg(null);
+              setRequiresOrgSetup(true);
+            } else {
+              setOrg(orgs?.[0] || null);
+              setRequiresOrgSetup(false);
+            }
             
             // Guardar token en localStorage para compatibilidad
             if (currentSession.access_token) {
@@ -90,8 +121,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .eq("user_id", currentSession.user.id)
             .order("created_at", { ascending: true });
             
-          if (!orgError && orgs?.[0]) {
-            setOrg(orgs[0]);
+          if (!orgError) {
+            if (!orgs || orgs.length === 0) {
+              setOrg(null);
+              setRequiresOrgSetup(true);
+            } else {
+              setOrg(orgs[0]);
+              setRequiresOrgSetup(false);
+            }
           }
         } else {
           setSession(null);
@@ -115,9 +152,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [supabase.auth]);
 
+  // Autologin de desarrollo REMOVIDO: Olivia debe iniciar sesión manualmente (email/contraseña)
+
   // Registro con email/password
   const signUp = async (email: string, password: string, extra?: Record<string, any>) => {
     try {
+      // Asegurar que no quede una sesión previa (p.ej. Olivia) antes de registrar
+      try { await supabase.auth.signOut(); } catch {}
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -175,6 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setSession(null);
       setOrg(null);
+      setRequiresOrgSetup(false);
       
       // Redirigir a la landing
       window.location.href = '/';
@@ -184,12 +226,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Crear organización explícitamente (primera vez)
+  const createOrganization = async ({ nombre_organizacion, extras }: { nombre_organizacion: string; extras?: Record<string, any> }): Promise<Organization | null> => {
+    if (!user) return null;
+    try {
+      const id = (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : undefined;
+      const payload: any = {
+        user_id: user.id,
+        nombre_organizacion,
+      };
+      if (id) payload.id = id;
+      // Incluir campos opcionales conocidos si vienen en extras
+      const allowedOptionalKeys = [
+        'razon_social',
+        'rut',
+        'actividad_economica',
+        'direccion',
+        'encargado_nombre',
+        'encargado_apellido',
+      ] as const;
+      if (extras && typeof extras === 'object') {
+        for (const k of allowedOptionalKeys) {
+          const v = (extras as any)[k];
+          if (typeof v !== 'undefined' && v !== null && String(v).trim() !== '') {
+            if (k === 'rut') {
+              (payload as any)[k] = normalizeRut(String(v));
+            } else {
+              (payload as any)[k] = v;
+            }
+          }
+        }
+      }
+      const { data, error } = await supabase
+        .from('organizaciones')
+        .insert(payload)
+        .select('*')
+        .limit(1);
+      if (error) throw error;
+      const created = data?.[0] || null;
+      setOrg(created);
+      setRequiresOrgSetup(false);
+      return created;
+    } catch (e) {
+      console.error('Error creando organización:', e);
+      throw e;
+    }
+  };
+
   const value: AuthContextProps = {
     user,
     session,
     loading,
     org,
     setOrg,
+    requiresOrgSetup,
+    createOrganization,
     logout,
     loginWithGoogle,
     signUp,
@@ -199,7 +290,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 }

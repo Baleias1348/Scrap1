@@ -3,65 +3,8 @@
 import React, { useState } from "react";
 import ChatWindow from "../../components/ChatWindow";
 
-type Message = {
-  id: string;
-  sender: "user" | "assistant" | "loading";
-  name: string;
-  avatarUrl: string;
-  content: string;
-};
-
-const initialMessages: Message[] = [
-  {
-    id: "1",
-    sender: "assistant",
-    name: "Asistente Preventi Flow",
-    avatarUrl: "/assistant-avatar.png",
-    content: "Hola, Olivia. Estoy listo para ayudar. Puedo analizar informes, generar resúmenes de seguridad o encontrar datos de inspección. ¿Qué necesitas hoy?",
-  },
-  {
-    id: "2",
-    sender: "user",
-    name: "Olivia Martin",
-    avatarUrl: "https://i.pravatar.cc/150?u=a042581f4e29026704d",
-    content: "Genera un resumen de los incidentes de seguridad reportados en la 'Empresa 2' en el último trimestre.",
-  },
-  {
-    id: "3",
-    sender: "assistant",
-    name: "Asistente Preventi Flow",
-    avatarUrl: "/assistant-avatar.png",
-    content: "Claro. Analizando los datos de la 'Empresa 2' para el último trimestre... Un momento.",
-  },
-];
-
 export default function AsistenteIAPage() {
-  const [messages, setMessages] = useState(initialMessages);
-  const [inputValue, setInputValue] = useState("");
-  const [loading, setLoading] = useState(false);
   const [showChat, setShowChat] = useState(true);
-
-  const handleSend = () => {
-    if (!inputValue.trim()) return;
-    setMessages([
-      ...messages,
-      {
-        id: (messages.length + 1).toString(),
-        sender: "user",
-        name: "Olivia Martin",
-        avatarUrl: "https://i.pravatar.cc/150?u=a042581f4e29026704d",
-        content: inputValue,
-      },
-      {
-        id: (messages.length + 2).toString(),
-        sender: "assistant",
-        name: "Asistente Preventi Flow",
-        avatarUrl: "/assistant-avatar.png",
-        content: "(Simulación) Estoy procesando tu consulta...",
-      },
-    ]);
-    setInputValue("");
-  };
 
   return (
     <main className="flex flex-col flex-1 min-h-screen bg-transparent p-8">
@@ -88,13 +31,7 @@ export default function AsistenteIAPage() {
             >
               ×
             </button>
-            <ChatWindow
-              messages={messages}
-              inputValue={inputValue}
-              onInputChange={setInputValue}
-              onSend={handleSend}
-              loading={loading}
-            />
+            <ChatWindow />
           </div>
         </div>
       )}

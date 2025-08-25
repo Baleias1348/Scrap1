@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
@@ -76,11 +78,39 @@ Objetivo: Mantenciones, inspecciones y certificaciones de equipos.
 
 export async function POST(req: NextRequest) {
   try {
+    // Determinar organización desde la sesión
+    const routeClient = createRouteHandlerClient({ cookies });
+    const { data: { user }, error: userErr } = await routeClient.auth.getUser();
+    if (userErr || !user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+
+    let orgId: string | null = null;
+    const { data: orgs, error: orgErr } = await routeClient
+      .from('organizaciones')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true });
+    if (orgErr) return NextResponse.json({ error: orgErr.message }, { status: 500 });
+    if (!orgs || orgs.length === 0) {
+      const { data: inserted, error: insErr } = await routeClient
+        .from('organizaciones')
+        .insert({ nombre_organizacion: 'Organización 1', user_id: user.id })
+        .select('*')
+        .limit(1);
+      if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
+      orgId = inserted?.[0]?.id || null;
+    } else {
+      orgId = orgs[0].id;
+    }
+    if (!orgId) return NextResponse.json({ error: 'No se pudo determinar organización' }, { status: 500 });
+
+    const basePrefix = `orgs/${orgId}/`;
+    const pref = (p: string) => (p.startsWith('orgs/') ? p : (basePrefix + p));
+
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
     // Crear carpetas con .keep
     for (const folder of FOLDERS) {
-      const keepPath = `${folder}.keep`;
+      const keepPath = `${pref(folder)}.keep`;
       const { error } = await supabase
         .storage
         .from(BUCKET)
@@ -97,7 +127,7 @@ export async function POST(req: NextRequest) {
       const parts = folder.replace(/\/$/, '').split('/');
       const base = parts[parts.length - 1];
       const readmeContent = READMES[base] || `# ${base}\n\nGuía de uso de la carpeta ${base}.`;
-      const readmePath = `${folder}README.md`;
+      const readmePath = `${pref(folder)}README.md`;
       const { error: readmeErr } = await supabase
         .storage
         .from(BUCKET)
@@ -112,11 +142,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Crear archivo lista_maestra_trabajadores.csv vacío si no existe
-    const csvPath = '08_trabajadores/lista_maestra_trabajadores.csv';
+    const csvPath = pref('08_trabajadores/') + 'lista_maestra_trabajadores.csv';
     const { data: existsData } = await supabase
       .storage
       .from(BUCKET)
-      .list('08_trabajadores', { search: 'lista_maestra_trabajadores.csv' });
+      .list(pref('08_trabajadores/'), { search: 'lista_maestra_trabajadores.csv' as any });
 
     const already = (existsData || []).some(f => f.name === 'lista_maestra_trabajadores.csv');
     if (!already) {

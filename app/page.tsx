@@ -10,7 +10,9 @@ export default function HomePage() {
   const [registerData, setRegisterData] = useState({ nombres: '', apellidos: '', email: '', password: '', cargo: '', telefono: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string|null>(null);
-  const { loginWithGoogle, signUp, loginWithPassword } = useAuth();
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetMsg, setResetMsg] = useState<string|null>(null);
+  const { signUp, loginWithPassword } = useAuth();
   const router = useRouter();
 
   // Handlers
@@ -27,6 +29,28 @@ export default function HomePage() {
     }
   };
 
+  const handleSendReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setResetMsg(null);
+    try {
+      const { getSupabaseClient } = await import("../src/lib/supabase");
+      const supabase = getSupabaseClient();
+      const redirectTo = `${window.location.origin}/auth/callback?next=/reset-password`;
+      const { error: rerr } = await supabase.auth.resetPasswordForEmail(loginData.email, { redirectTo });
+      if (rerr) {
+        setError(rerr.message || 'No se pudo enviar el correo.');
+      } else {
+        setResetMsg('Hemos enviado un correo con instrucciones para restablecer tu contraseña.');
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Error enviando el correo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true); setError(null);
@@ -36,27 +60,12 @@ export default function HomePage() {
     if (res && 'error' in res && res.error) {
       setError('No se pudo registrar.');
     } else {
-      // Intentar login automático tras registro
-      const loginRes = await loginWithPassword(email, password);
-      if (loginRes && 'error' in loginRes && loginRes.error) {
-        setError('Usuario registrado, pero error al iniciar sesión. Intenta ingresar manualmente.');
-        setView('login');
-      } else {
-        router.replace('/dashboard');
-      }
+      // Registro exitoso: exigir inicio de sesión manual
+      setView('login');
+      setError(null);
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setLoading(true); setError(null);
-    try {
-      await loginWithGoogle('/dashboard');
-    } catch (err) {
-      setError('Error con Google OAuth.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
 
   return (
@@ -72,8 +81,8 @@ export default function HomePage() {
               <a href="#insights" className="hover:text-white transition-colors">Asistencia</a>
             </nav>
             <div className="flex items-center gap-2">
-              <button onClick={()=>setView('login')} className="hidden sm:inline-flex items-center h-9 hover:text-white hover:border-white/20 transition-colors text-sm text-white/80 border-white/10 border rounded-lg pr-3 pl-3">Iniciar sesión</button>
-              <button onClick={()=>setView('register')} className="inline-flex items-center h-9 hover:bg-white/90 transition-colors text-sm font-medium text-slate-50 bg-[#ff6a00] border-[#ff6a00] rounded-lg pr-3 pl-3">Registrarse<span className="ml-1">→</span></button>
+              <button onClick={()=>{ setView('login'); setLoading(false); setError(null); setResetOpen(false); }} className="hidden sm:inline-flex items-center h-9 hover:text-white hover:border-white/20 transition-colors text-sm text-white/80 border-white/10 border rounded-lg pr-3 pl-3">Iniciar sesión</button>
+              <button onClick={()=>{ setView('register'); setLoading(false); setError(null); setResetOpen(false); }} className="inline-flex items-center h-9 hover:bg-white/90 transition-colors text-sm font-medium text-slate-50 bg-[#ff6a00] border-[#ff6a00] rounded-lg pr-3 pl-3">Registrarse<span className="ml-1">→</span></button>
             </div>
           </div>
         </div>
@@ -88,8 +97,8 @@ export default function HomePage() {
             <h1 className="sm:text-5xl md:text-6xl lg:text-7xl leading-tight text-4xl font-semibold text-[#ff6a00] tracking-tight">Preventi Flow<br className="hidden md:block" /></h1>
             <p className="sm:text-lg leading-relaxed -translate-x-16 text-base text-slate-50 mt-4 mr-20 ml-20">Automatiza todos tus procesos de gestión en la Prevención de Riesgos Laborales</p>
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
-              <button onClick={()=>setView('register')} className="inline-flex items-center justify-center h-11 hover:bg-white/90 transition shadow-[0_2.8px_2.2px_rgba(0,_0,_0,_0.034),_0_6.7px_5.3px_rgba(0,_0,_0,_0.048),_0_12.5px_10px_rgba(0,_0,_0,_0.06),_0_22.3px_17.9px_rgba(0,_0,_0,_0.072),_0_41.8px_33.4px_rgba(0,_0,_0,_0.086),_0_100px_80px_rgba(0,_0,_0,_0.12)] text-sm font-bold text-slate-50 bg-slate-950 border-[#ff6a00] border-0 rounded-xl pr-4 pl-4">Crea una cuenta<svg width="18" height="18" viewBox="0 0 24 24" className="ml-1.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></button>
-              <button onClick={()=>setView('login')} className="inline-flex items-center justify-center h-11 hover:text-white hover:border-white/20 transition shadow-[0px_0px_0px_1px_rgba(0,0,0,0.06),0px_1px_1px_-0.5px_rgba(0,0,0,0.06),0px_3px_3px_-1.5px_rgba(0,0,0,0.06),_0px_6px_6px_-3px_rgba(0,0,0,0.06),0px_12px_12px_-6px_rgba(0,0,0,0.06),0px_24px_24px_-12px_rgba(0,0,0,0.06)] text-sm text-white/90 border-white/10 border rounded-xl pr-4 pl-4 backdrop-blur-lg">Ingresa a tu dashboard<svg width="18" height="18" viewBox="0 0 24 24" className="ml-1.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg></button>
+              <button onClick={()=>{ setView('register'); setLoading(false); setError(null); setResetOpen(false); }} className="inline-flex items-center justify-center h-11 hover:bg-white/90 transition shadow-[0_2.8px_2.2px_rgba(0,_0,_0,_0.034),_0_6.7px_5.3px_rgba(0,_0,_0,_0.048),_0_12.5px_10px_rgba(0,_0,_0,_0.06),_0_22.3px_17.9px_rgba(0,_0,_0,_0.072),_0_41.8px_33.4px_rgba(0,_0,_0,_0.086),_0_100px_80px_rgba(0,_0,_0,_0.12)] text-sm font-bold text-slate-50 bg-slate-950 border-[#ff6a00] border-0 rounded-xl pr-4 pl-4">Crea una cuenta<svg width="18" height="18" viewBox="0 0 24 24" className="ml-1.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></button>
+              <button onClick={()=>{ setView('login'); setLoading(false); setError(null); setResetOpen(false); }} className="inline-flex items-center justify-center h-11 hover:text-white hover:border-white/20 transition shadow-[0px_0px_0px_1px_rgba(0,0,0,0.06),0px_1px_1px_-0.5px_rgba(0,0,0,0.06),0px_3px_3px_-1.5px_rgba(0,0,0,0.06),_0px_6px_6px_-3px_rgba(0,0,0,0.06),0px_12px_12px_-6px_rgba(0,0,0,0.06),0px_24px_24px_-12px_rgba(0,0,0,0.06)] text-sm text-white/90 border-white/10 border rounded-xl pr-4 pl-4 backdrop-blur-lg">Ingresa a tu dashboard<svg width="18" height="18" viewBox="0 0 24 24" className="ml-1.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg></button>
             </div>
             <div className="mt-6 flex items-center gap-4 text-xs text-white/60">
               <div className="flex -space-x-2"></div>
@@ -175,7 +184,21 @@ export default function HomePage() {
                   {error && <div className="text-red-400 text-center">{error}</div>}
                   <button type="submit" className="w-full bg-[#ff6a00] hover:bg-[#ff8129] text-white font-bold py-2 rounded-lg transition">{loading ? 'Cargando...' : 'Ingresar'}</button>
                 </form>
-                <button onClick={handleGoogleLogin} className="w-full mt-2 bg-white/90 hover:bg-white text-neutral-900 font-medium py-2 rounded-lg transition flex items-center justify-center"><span className="mr-2">G</span> Iniciar sesión con Google</button>
+                <div className="text-center text-sm text-white/80">
+                  <button className="underline hover:text-white" onClick={() => { setResetOpen(v=>!v); setResetMsg(null); setError(null); }}>
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                </div>
+                {resetOpen && (
+                  <form onSubmit={handleSendReset} className="space-y-3 mt-2">
+                    <div>
+                      <label className="text-sm text-white/70">Email</label>
+                      <input type="email" required className="form-input w-full mt-1 rounded-md p-2" value={loginData.email} onChange={e=>setLoginData({...loginData, email: e.target.value})} />
+                    </div>
+                    {resetMsg && <div className="text-emerald-400 text-center">{resetMsg}</div>}
+                    <button type="submit" className="w-full bg-white/10 hover:bg-white/20 text-white font-medium py-2 rounded-lg transition">{loading ? 'Enviando...' : 'Enviar correo de restablecimiento'}</button>
+                  </form>
+                )}
                 <div className="text-center mt-2">
                   ¿No tienes cuenta? <button className="text-[#ff6a00] underline" onClick={()=>{setView('register');setError(null);}}>Regístrate</button>
                 </div>
@@ -216,7 +239,6 @@ export default function HomePage() {
                   {error && <div className="text-red-400 text-center">{error}</div>}
                   <button type="submit" className="w-full bg-[#ff6a00] hover:bg-[#ff8129] text-white font-bold py-2 rounded-lg transition">{loading ? 'Cargando...' : 'Registrarse'}</button>
                 </form>
-                <button onClick={()=>loginWithGoogle('/dashboard')} className="w-full mt-2 bg-white/90 hover:bg-white text-neutral-900 font-medium py-2 rounded-lg transition flex items-center justify-center"><span className="mr-2">G</span> Registrarse con Google</button>
                 <div className="text-center mt-2">
                   ¿Ya tienes cuenta? <button className="text-[#ff6a00] underline" onClick={()=>{setView('login');setError(null);}}>Inicia sesión</button>
                 </div>

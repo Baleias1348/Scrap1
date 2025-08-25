@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import MarkdownRenderer from "./MarkdownRenderer";
+import { useAuth } from "../context/AuthContext";
 
 interface TreeItem { name: string; path: string }
 interface TreeResp { path: string; folders: TreeItem[]; files: (TreeItem & { size?: number|null, updated_at?: string|null })[] }
@@ -32,6 +33,9 @@ function FolderSVG() {
 }
 
 export default function Documentacion() {
+  const { org } = useAuth();
+  // Aislar documentación bajo orgs/<orgId>/ (las carpetas 01_..11_ viven aquí)
+  const basePrefix = org?.id ? `orgs/${org.id}/` : '';
   const [folders, setFolders] = useState<TreeItem[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [statusMap, setStatusMap] = useState<Record<string, FolderStatus>>({});
@@ -52,6 +56,7 @@ export default function Documentacion() {
   const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
   const [selectedFolderTitle, setSelectedFolderTitle] = useState<string>("");
   const [folderFiles, setFolderFiles] = useState<(TreeItem & { size?: number|null, updated_at?: string|null })[]>([]);
+  const [childFolders, setChildFolders] = useState<TreeItem[]>([]);
   const [loadingFolder, setLoadingFolder] = useState<boolean>(false);
   const [folderError, setFolderError] = useState<string | null>(null);
   const [previewingFile, setPreviewingFile] = useState<TreeItem & { size?: number|null, updated_at?: string|null } | null>(null);
@@ -73,7 +78,10 @@ export default function Documentacion() {
     const loadRoot = async () => {
       setLoading(true); setError(null);
       try {
-        const res = await fetch(`/api/plantillas/tree?path=${encodeURIComponent("/")}`);
+        const url = basePrefix
+          ? `/api/plantillas/tree?basePrefix=${encodeURIComponent(basePrefix)}`
+          : `/api/plantillas/tree?path=${encodeURIComponent("")}`; // listar raíz del bucket cuando no hay organización
+        const res = await fetch(url);
         if (!res.ok) throw new Error("No se pudo cargar carpetas");
         const data: TreeResp = await res.json();
         setFolders(data.folders);
@@ -122,33 +130,8 @@ export default function Documentacion() {
         setLoading(false);
       }
     };
-
-  const handleDeleteFile = async () => {
-    if (!fileToDelete) return;
-    try {
-      const res = await fetch('/api/gestion-documental/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: (fileToDelete as any).path, isFolder: false })
-      });
-      if (!res.ok) throw new Error('No se pudo eliminar el archivo');
-      // refrescar lista
-      await openFolderInCanvas(selectedFolderPath!, selectedFolderTitle);
-      // limpiar preview si era el archivo eliminado
-      if (previewingFile && previewingFile.path === (fileToDelete as any).path) {
-        setPreviewingFile(null);
-        setPreviewUrl("");
-        setPreviewText("");
-        setIsEditing(false);
-      }
-      setConfirmDeleteOpen(false);
-      setFileToDelete(null);
-    } catch (e: any) {
-      setFolderError(e?.message || 'Error eliminando archivo');
-    }
-  };
     loadRoot();
-  }, []);
+  }, [basePrefix]);
 
   // Recalcular estado cuando cambie el umbral o los timestamps
   useEffect(() => {
@@ -174,6 +157,48 @@ export default function Documentacion() {
   const fmtDate = (iso?: string | null) => {
     if (!iso) return 'sin fecha';
     try { const d = new Date(iso); return d.toLocaleString(); } catch { return 'sin fecha'; }
+  };
+
+  const handleDeleteFile = async () => {
+    if (!fileToDelete) return;
+    try {
+      const res = await fetch('/api/gestion-documental/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: (fileToDelete as any).path, isFolder: false })
+      });
+      if (!res.ok) throw new Error('No se pudo eliminar el archivo');
+      // refrescar lista
+      await openFolderInCanvas(selectedFolderPath!, selectedFolderTitle);
+      // limpiar preview si era el archivo eliminado
+      if (previewingFile && previewingFile.path === (fileToDelete as any).path) {
+        setPreviewingFile(null);
+        setPreviewUrl("");
+        setPreviewText("");
+        setIsEditing(false);
+      }
+      setConfirmDeleteOpen(false);
+      setFileToDelete(null);
+    } catch (e: any) {
+      setFolderError(e?.message || 'Error eliminando archivo');
+    }
+  };
+
+  const goBack = async () => {
+    if (!selectedFolderPath) { setSelectedFolderPath(null); return; }
+    const trimmed = selectedFolderPath.replace(/\/$/, '');
+    const parts = trimmed.split('/');
+    parts.pop(); // remove current folder
+    if (parts.length === 0) {
+      // back to root
+      setSelectedFolderPath(null);
+      setPreviewingFile(null);
+      setIsEditing(false);
+      return;
+    }
+    const parentPath = parts.join('/') + '/';
+    const parentTitle = parts[parts.length - 1] || '';
+    await openFolderInCanvas(parentPath, parentTitle);
   };
 
   const statusDot = (s?: FolderStatus, iso?: string | null) => {
@@ -202,6 +227,24 @@ export default function Documentacion() {
           if (urlRes.ok) {
             const j = await urlRes.json();
             if (j?.signedUrl) { freshUrl = j.signedUrl; break; }
+          }
+        } catch {}
+      }
+      // Si no existe README aún, forzamos auto-bootstrap por organización y reintentamos una vez
+      if (!freshUrl) {
+        try {
+          const bp = basePrefix || '';
+          if (bp) {
+            await fetch(`/api/plantillas/tree?basePrefix=${encodeURIComponent(bp)}`, { cache: 'no-store' }).catch(() => {});
+            for (const p of tryPaths) {
+              try {
+                const urlRes = await fetch(`/api/plantillas/file?path=${encodeURIComponent(p)}&expiresIn=600&_=${Date.now()}`, { cache: 'no-store' });
+                if (urlRes.ok) {
+                  const j = await urlRes.json();
+                  if (j?.signedUrl) { freshUrl = j.signedUrl; break; }
+                }
+              } catch {}
+            }
           }
         } catch {}
       }
@@ -239,12 +282,16 @@ export default function Documentacion() {
     setFolderError(null);
     setLoadingFolder(true);
     try {
-      // Bootstrap general (asegura estructura); idempotente
-      await fetch('/api/gestion-documental/bootstrap', { method: 'POST' }).catch(() => {});
+      // Forzar auto-bootstrap inteligente por organización invocando el árbol raíz (idempotente)
+      if (basePrefix) {
+        await fetch(`/api/plantillas/tree?basePrefix=${encodeURIComponent(basePrefix)}`, { cache: 'no-store' }).catch(() => {});
+      }
       // Listar archivos de la carpeta
       const r = await fetch(`/api/plantillas/tree?path=${encodeURIComponent(folderPath)}`);
       if (!r.ok) throw new Error('No se pudo listar la carpeta');
       const dt: TreeResp = await r.json();
+      // Carpetas hijas
+      setChildFolders(dt.folders || []);
       // Excluir .keep
       const files = (dt.files || []).filter(x => x.name !== '.keep');
       setFolderFiles(files);
@@ -569,7 +616,7 @@ export default function Documentacion() {
               <button className="text-xs px-3 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition" onClick={handleCreateFile}>Crear archivo</button>
               <button disabled={uploading} className="text-xs px-3 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition disabled:opacity-50" onClick={triggerUpload}>{uploading ? 'Subiendo...' : 'Subir archivo'}</button>
               <input ref={uploadInputRef} type="file" className="hidden" onChange={handleUploadChange} />
-              <button className="text-xs px-3 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition" onClick={() => { setSelectedFolderPath(null); setPreviewingFile(null); setIsEditing(false); }}>Volver</button>
+              <button className="text-xs px-3 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition" onClick={goBack}>Volver</button>
             </div>
           </div>
 
@@ -583,6 +630,18 @@ export default function Documentacion() {
                 <div className="rounded-lg border border-white/10 bg-white/5 overflow-hidden">
                   <div className="px-3 py-2 border-b border-white/10 text-xs text-white/60">Archivos</div>
                   <ul className="max-h-[60vh] overflow-y-auto divide-y divide-white/5">
+                    {childFolders.map(cf => (
+                      <li key={cf.path} className="px-3 py-2 text-sm flex items-center justify-between hover:bg-white/5">
+                        <button
+                          className="text-left truncate flex-1 pr-2 font-medium text-white"
+                          title={cf.name}
+                          onClick={() => openFolderInCanvas(cf.path, cf.name.replace(/\/$/, ''))}
+                        >
+                          📁 {cf.name.replace(/\/$/, '')}
+                        </button>
+                        <div className="flex items-center gap-2 text-white/60">→</div>
+                      </li>
+                    ))}
                     {folderFiles.map(f => (
                       <li key={f.path} className="px-3 py-2 text-sm flex items-center justify-between hover:bg-white/5">
                         <button
@@ -603,8 +662,8 @@ export default function Documentacion() {
                         </div>
                       </li>
                     ))}
-                    {folderFiles.length === 0 && (
-                      <li className="px-3 py-3 text-sm text-white/60">No hay archivos</li>
+                    {childFolders.length === 0 && folderFiles.length === 0 && (
+                      <li className="px-3 py-3 text-sm text-white/60">No hay archivos ni subcarpetas</li>
                     )}
                   </ul>
                 </div>
@@ -665,11 +724,11 @@ export default function Documentacion() {
                       <textarea className="w-full h-[60vh] bg-transparent p-3 text-sm outline-none text-white" value={editingContent} onChange={(e) => setEditingContent(e.target.value)} />
                     ) : previewText ? (
                       isMarkdown(previewingFile?.name) ? (
-                        <div className="w-full h-[60vh] overflow-auto bg-transparent p-3 text-sm">
+                        <div className="w-full h-[60vh] overflow-auto bg-transparent p-3 text-base leading-7">
                           <MarkdownRenderer content={previewText} theme="dark" />
                         </div>
                       ) : (
-                        <pre className="w-full h-[60vh] overflow-auto bg-transparent p-3 text-sm text-white whitespace-pre-wrap">{previewText}</pre>
+                        <pre className="w-full h-[60vh] overflow-auto bg-transparent p-3 text-base leading-7 text-white whitespace-pre-wrap">{previewText}</pre>
                       )
                     ) : xlsRows ? (
                       <div className="w-full h-[60vh] overflow-auto text-sm">
@@ -724,20 +783,20 @@ export default function Documentacion() {
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
           <div className="w-[90vw] max-w-4xl bg-[#0b0f1a] border border-white/10 rounded-xl overflow-hidden shadow-xl">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-              <h3 className="text-white font-semibold">Guía — {modalTitle}</h3>
-              <button onClick={() => setModalOpen(false)} className="text-white/70 hover:text-white">✕</button>
+            <div className="flex items-center justify-between px-4 py-3 bg-[#C7620A]">
+              <h3 className="text-white font-semibold text-lg">Guía — {modalTitle}</h3>
+              <button onClick={() => setModalOpen(false)} className="text-white hover:text-white/90">✕</button>
             </div>
             <div className="p-0">
               {modalLoading ? (
                 <div className="p-6 text-white/60 text-sm">Cargando guía...</div>
               ) : modalText ? (
                 isMarkdown(modalUrl) ? (
-                  <div className="w-full h-[70vh] overflow-auto bg-transparent p-4 text-sm">
+                  <div className="w-full h-[70vh] overflow-auto bg-transparent p-4 text-base leading-7">
                     <MarkdownRenderer content={modalText} theme="dark" />
                   </div>
                 ) : (
-                  <pre className="w-full h-[70vh] overflow-auto bg-transparent p-4 text-sm text-white whitespace-pre-wrap">{modalText}</pre>
+                  <pre className="w-full h-[70vh] overflow-auto bg-transparent p-4 text-base leading-7 text-white whitespace-pre-wrap">{modalText}</pre>
                 )
               ) : modalUrl ? (
                 <iframe src={modalUrl} className="w-full h-[70vh]" />
@@ -746,7 +805,6 @@ export default function Documentacion() {
               )}
             </div>
             <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-white/10">
-              <a href={modalUrl} target="_blank" rel="noreferrer" className="text-xs px-3 py-1 rounded border border-white/20 text-white hover:bg-white/10 transition">Abrir en nueva pestaña</a>
               <button onClick={() => setModalOpen(false)} className="text-xs px-3 py-1 rounded bg-[#ff6a00] text-white hover:bg-[#ff8a3b] transition">Cerrar</button>
             </div>
           </div>

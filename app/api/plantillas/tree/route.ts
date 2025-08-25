@@ -36,9 +36,17 @@ const READMES: Record<string, string> = {
   '11_equipos_mantenimiento': `# 11 Equipos y Mantenimiento\n\nObjetivo: Mantenciones, inspecciones y certificaciones de equipos.\n`,
 };
 
-async function ensureStructure(supabase: ReturnType<typeof createClient>) {
+function normPrefix(p?: string | null) {
+  if (!p) return '';
+  let s = p.replace(/^\/+/, '');
+  if (s && !s.endsWith('/')) s += '/';
+  return s;
+}
+
+async function ensureStructure(supabase: any, basePrefix = '') {
+  const pref = normPrefix(basePrefix);
   for (const folder of FOLDERS) {
-    const keepPath = `${folder}.keep`;
+    const keepPath = `${pref}${folder}.keep`;
     const { error } = await supabase
       .storage
       .from(BUCKET)
@@ -51,9 +59,9 @@ async function ensureStructure(supabase: ReturnType<typeof createClient>) {
     }
 
     const parts = folder.replace(/\/$/, '').split('/');
-    const base = parts[parts.length - 1];
-    const readmeContent = READMES[base] || `# ${base}\n\nGuía de uso de la carpeta ${base}.`;
-    const readmePath = `${folder}README.md`;
+    const baseName = parts[parts.length - 1];
+    const readmeContent = READMES[baseName] || `# ${baseName}\n\nGuía de uso de la carpeta ${baseName}.`;
+    const readmePath = `${pref}${folder}README.md`;
     const { error: readmeErr } = await supabase
       .storage
       .from(BUCKET)
@@ -68,11 +76,11 @@ async function ensureStructure(supabase: ReturnType<typeof createClient>) {
   }
 
   // Minimal default file example (kept from bootstrap behavior)
-  const csvPath = '08_trabajadores/lista_maestra_trabajadores.csv';
+  const csvPath = `${pref}08_trabajadores/lista_maestra_trabajadores.csv`;
   const { data: existsData } = await supabase
     .storage
     .from(BUCKET)
-    .list('08_trabajadores', { search: 'lista_maestra_trabajadores.csv' as any });
+    .list(`${pref}08_trabajadores`, { search: 'lista_maestra_trabajadores.csv' as any });
   const already = (existsData || []).some((f: any) => f.name === 'lista_maestra_trabajadores.csv');
   if (!already) {
     const { error: csvErr } = await supabase
@@ -90,7 +98,9 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   // Respect empty path if provided to allow bucket root listing
   const hasPath = searchParams.has('path');
-  let path = hasPath ? (searchParams.get('path') || '') : '12_plantillas/';
+  const basePrefix = normPrefix(searchParams.get('basePrefix'));
+  // Si no se especifica path ni basePrefix, listar raíz del bucket
+  let path = hasPath ? (searchParams.get('path') || '') : (basePrefix || '');
   if (path === '/') path = '';
   const includeKeeps = (searchParams.get('includeKeeps') || 'false').toLowerCase() === 'true';
 
@@ -115,28 +125,28 @@ export async function GET(req: NextRequest) {
     }
 
     // Auto-bootstrap when listing the bucket root and nothing exists yet
-    const isRoot = (path || '') === '';
+    const isRoot = (path || '') === (basePrefix || '');
     if (isRoot && folders.length === 0 && files.length === 0) {
       try {
-        await ensureStructure(supabase);
+        await ensureStructure(supabase, basePrefix);
         // Re-list after creating structure
-        const relist = await supabase.storage.from(BUCKET).list('', { limit: 1000 });
+        const relist = await supabase.storage.from(BUCKET).list(basePrefix, { limit: 1000 });
         if (relist.error) throw relist.error;
         const folders2: { name: string; path: string }[] = [];
         const files2: { name: string; path: string; size?: number | null; updated_at?: string | null; icon?: string }[] = [];
         for (const item of relist.data || []) {
           if (item.name === '.keep' && !includeKeeps) continue;
-          const itemPath = item.name;
+          const itemPath = (basePrefix || '') + item.name;
           if ((item as any).id === null) {
             folders2.push({ name: item.name, path: itemPath + '/' });
           } else {
             files2.push({ name: item.name, path: itemPath, size: (item as any).metadata?.size ?? null, updated_at: (item as any).updated_at ?? null });
           }
         }
-        return NextResponse.json({ path: '', folders: folders2, files: files2 }, { status: 200 });
+        return NextResponse.json({ path: basePrefix || '', folders: folders2, files: files2 }, { status: 200 });
       } catch (bootErr: any) {
         // If boot fails, still return the original (empty) listing with an advisory message
-        return NextResponse.json({ path: '', folders, files, note: 'Auto-bootstrap failed', details: String(bootErr?.message || bootErr) }, { status: 200 });
+        return NextResponse.json({ path: basePrefix || '', folders, files, note: 'Auto-bootstrap failed', details: String(bootErr?.message || bootErr) }, { status: 200 });
       }
     }
 

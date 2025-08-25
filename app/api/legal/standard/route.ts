@@ -9,7 +9,7 @@ type Frag = { id?: string | number; content: string; source?: string; meta?: any
 
 type RetrievalResult = { fragments: Frag[] };
 
-default async function retrieveFromSupabase(supabase: any, query: string, n = 5): Promise<RetrievalResult> {
+async function retrieveFromSupabase(supabase: any, query: string, n = 5): Promise<RetrievalResult> {
   // Best-effort retrieval: tries common corpora; falls back to empty if tables do not exist.
   // You can adapt to your actual schema (e.g., pgvector similarity search, RPC, etc.)
   const results: Frag[] = [];

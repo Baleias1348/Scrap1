@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
 import { useModelRouter } from "../../src/lib/ai/useModelRouter";
+import { useAuth } from "../context/AuthContext";
 
 interface Message {
   id: number;
@@ -13,13 +14,14 @@ interface Message {
 }
 
 export default function ChatWindow() {
+  const { user, org } = useAuth();
   const [chatContext, setChatContext] = useState<"chat" | "fast_interactions" | "compliance" | "documents">("chat");
   const { model, mode, isLoading: modelLoading, error: modelError } = useModelRouter(chatContext);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
       sender: "assistant",
-      text: "Hola, Olivia. Estoy listo para ayudarte. ¿Qué necesitas hoy?",
+      text: "Hola, estoy listo para ayudarte. ¿Qué necesitas hoy?",
     },
   ]);
   const [input, setInput] = useState("");
@@ -45,7 +47,7 @@ export default function ChatWindow() {
       {
         id: 1,
         sender: "assistant",
-        text: "Hola, Olivia. Estoy listo para ayudarte. ¿Qué necesitas hoy?",
+        text: "Hola, estoy listo para ayudarte. ¿Qué necesitas hoy?",
       },
     ]);
   };
@@ -213,9 +215,21 @@ export default function ChatWindow() {
                 </svg>
               </div>
             ) : (
-              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br from-[#ff6a00] to-[#ff8c00] border border-orange-300 shadow-md">
-                <span className="text-white font-bold">U</span>
-              </div>
+              (
+                (user?.user_metadata as any)?.avatar_url || (user as any)?.picture ? (
+                  <img
+                    src={(user?.user_metadata as any)?.avatar_url || (user as any)?.picture}
+                    alt="Tu avatar"
+                    className="w-10 h-10 rounded-full border border-orange-300 shadow-md object-cover"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br from-[#ff6a00] to-[#ff8c00] border border-orange-300 shadow-md">
+                    <span className="text-white font-bold">
+                      {(user?.user_metadata?.full_name || user?.email || 'U').charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                )
+              )
             )}
             {/* Burbujas */}
             <div
@@ -231,14 +245,17 @@ export default function ChatWindow() {
                     remarkPlugins={[remarkGfm]}
                     rehypePlugins={[rehypeSanitize]}
                     components={{
-                      pre: ({ node, ...p }) => (
+                      pre: (p: any) => (
                         <pre className="max-h-[50vh] overflow-auto rounded-md" {...p} />
                       ),
-                      code: ({ inline, className, children, ...p }) => (
-                        <code className={`${className || ''} ${inline ? '' : 'block'} break-words`} {...p}>
-                          {children}
-                        </code>
-                      )
+                      code: (p: any) => {
+                        const { inline, className, children, ...rest } = p || {};
+                        return (
+                          <code className={`${className || ''} ${inline ? '' : 'block'} break-words`} {...rest}>
+                            {children}
+                          </code>
+                        );
+                      }
                     }}
                   >
                     {normalizeMarkdown(msg.text)}

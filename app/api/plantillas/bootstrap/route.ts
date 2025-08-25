@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
@@ -20,12 +20,21 @@ const FOLDERS = [
   '12_plantillas/11_reportes/',
 ];
 
-export async function POST() {
+function normPrefix(p?: string | null) {
+  if (!p) return '';
+  let s = p.replace(/^\/+/, '');
+  if (s && !s.endsWith('/')) s += '/';
+  return s;
+}
+
+export async function POST(req: NextRequest) {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const { searchParams } = new URL(req.url);
+    const basePrefix = normPrefix(searchParams.get('basePrefix'));
 
     for (const folder of FOLDERS) {
-      const keepPath = folder + '.keep';
+      const keepPath = (basePrefix || '') + folder + '.keep';
       // Upload empty .keep (upsert)
       await supabase.storage.from(BUCKET).upload(keepPath, new Blob([''], { type: 'text/plain' }), {
         upsert: true,
@@ -33,7 +42,7 @@ export async function POST() {
       });
     }
 
-    return NextResponse.json({ ok: true, created: FOLDERS.length }, { status: 200 });
+    return NextResponse.json({ ok: true, created: FOLDERS.length, basePrefix }, { status: 200 });
   } catch (err: any) {
     return NextResponse.json({ error: 'Error creando estructura de plantillas', details: err?.message || String(err) }, { status: 500 });
   }
