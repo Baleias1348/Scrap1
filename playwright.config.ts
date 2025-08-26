@@ -6,7 +6,7 @@ export default defineConfig({
   testDir: 'tests',
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: process.env.BASE_URL || 'http://localhost:3013',
+    baseURL: process.env.BASE_URL || 'http://localhost:3005',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

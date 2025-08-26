@@ -128,8 +128,9 @@ export default function HomePage() {
               <a href="#insights" className="hover:text-white transition-colors" onClick={()=>console.log('[UI] click:nav-asistencia')}>Asistencia</a>
             </nav>
             <div className="flex items-center gap-2">
-              <button onClick={()=>{ console.log('[UI] click:header-login'); setView('login'); setLoading(false); setError(null); setResetOpen(false); }} className="hidden sm:inline-flex items-center h-9 hover:text-white hover:border-white/20 transition-colors text-sm text:white/80 border-white/10 border rounded-lg pr-3 pl-3">Iniciar sesión</button>
-              <button onClick={()=>{ console.log('[UI] click:header-register'); setView('register'); setLoading(false); setError(null); setResetOpen(false); }} className="inline-flex items-center h-9 hover:bg:white/90 transition-colors text-sm font-medium text-slate-50 bg-[#ff6a00] border-[#ff6a00] rounded-lg pr-3 pl-3">Registrarse<span className="ml-1">→</span></button>
+              <a href="/admin" className="hidden md:inline-flex items-center h-9 hover:text-white hover:border-orange-400/50 transition-colors text-sm text-orange-400/80 border-orange-400/20 border rounded-lg pr-3 pl-3">Admin</a>
+              <button onClick={()=>{ console.log('[UI] click:header-login'); setView('login'); setLoading(false); setError(null); setResetOpen(false); }} className="hidden sm:inline-flex items-center h-9 hover:text-white hover:border-white/20 transition-colors text-sm text-white/80 border-white/10 border rounded-lg pr-3 pl-3">Iniciar sesión</button>
+              <button onClick={()=>{ console.log('[UI] click:header-register'); setView('register'); setLoading(false); setError(null); setResetOpen(false); }} className="inline-flex items-center h-9 hover:bg-white/90 transition-colors text-sm font-medium text-slate-50 bg-[#ff6a00] border-[#ff6a00] rounded-lg pr-3 pl-3">Registrarse<span className="ml-1">→</span></button>
             </div>
           </div>
         </div>
@@ -144,7 +145,7 @@ export default function HomePage() {
             <h1 className="sm:text-5xl md:text-6xl lg:text-7xl leading-tight text-4xl font-semibold text-[#ff6a00] tracking-tight">Preventi Flow<br className="hidden md:block" /></h1>
             <p className="sm:text-lg leading-relaxed -translate-x-16 text-base text-slate-50 mt-4 mr-20 ml-20">Automatiza todos tus procesos de gestión en la Prevención de Riesgos Laborales</p>
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
-              <button onClick={()=>{ console.log('[UI] click:hero-register'); setView('register'); setLoading(false); setError(null); setResetOpen(false); }} className="inline-flex items-center justify-center h-11 hover:bg:white/90 transition shadow-[0_2.8px_2.2px_rgba(0,_0,_0,_0.034),_0_6.7px_5.3px_rgba(0,_0,_0,_0.048),_0_12.5px_10px_rgba(0,_0,_0,_0.06),_0_22.3px_17.9px_rgba(0,_0,_0,_0.072),_0_41.8px_33.4px_rgba(0,_0,_0,_0.086),_0_100px_80px_rgba(0,_0,_0,_0.12)] text-sm font-bold text-slate-50 bg-slate-950 border-[#ff6a00] border-0 rounded-xl pr-4 pl-4">Crea una cuenta<svg width="18" height="18" viewBox="0 0 24 24" className="ml-1.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></button>
+              <button onClick={()=>{ console.log('[UI] click:hero-register'); setView('register'); setLoading(false); setError(null); setResetOpen(false); }} className="inline-flex items-center justify-center h-11 hover:bg-white/90 transition shadow-[0_2.8px_2.2px_rgba(0,_0,_0,_0.034),_0_6.7px_5.3px_rgba(0,_0,_0,_0.048),_0_12.5px_10px_rgba(0,_0,_0,_0.06),_0_22.3px_17.9px_rgba(0,_0,_0,_0.072),_0_41.8px_33.4px_rgba(0,_0,_0,_0.086),_0_100px_80px_rgba(0,_0,_0,_0.12)] text-sm font-bold text-slate-50 bg-slate-950 border-[#ff6a00] border-0 rounded-xl pr-4 pl-4">Crea una cuenta<svg width="18" height="18" viewBox="0 0 24 24" className="ml-1.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></button>
               <button onClick={()=>{ console.log('[UI] click:hero-login'); setView('login'); setLoading(false); setError(null); setResetOpen(false); }} className="inline-flex items-center justify-center h-11 hover:text-white hover:border-white/20 transition shadow-[0px_0px_0px_1px_rgba(0,0,0,0.06),0px_1px_1px_-0.5px_rgba(0,0,0,0.06),0px_3px_3px_-1.5px_rgba(0,0,0,0.06),_0px_6px_6px_-3px_rgba(0,0,0,0.06),0px_12px_12px_-6px_rgba(0,0,0,0.06),0px_24px_24px_-12px_rgba(0,0,0,0.06)] text-sm text-white/90 border-white/10 border rounded-xl pr-4 pl-4 backdrop-blur-lg">Ingresa a tu dashboard<svg width="18" height="18" viewBox="0 0 24 24" className="ml-1.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg></button>
             </div>
             <div className="mt-6 flex items-center gap-4 text-xs text-white/60">
@@ -307,24 +308,6 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
-      <style jsx global>{`
-        .glass-form {
-          background: rgba(10, 10, 10, 0.4);
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
-          border: 1px solid rgba(255, 106, 0, 0.2);
-        }
-        .form-input {
-          background-color: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          transition: border-color 0.2s, box-shadow 0.2s;
-        }
-        .form-input:focus {
-          outline: none;
-          border-color: #ff6a00;
-          box-shadow: 0 0 0 2px rgba(255, 106, 0, 0.3);
-        }
-      `}</style>
     </div>
 );
 }

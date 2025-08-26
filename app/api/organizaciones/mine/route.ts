@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
     const service = process.env.SUPABASE_SERVICE_ROLE_KEY as string;
@@ -31,7 +31,15 @@ export async function GET() {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    return NextResponse.json({ data: data ?? [] }, { status: 200 });
+    const u = userData.user;
+    const urlObj = new URL(req.url);
+    const debug = urlObj.searchParams.get('debug');
+    const payload: any = { data: data ?? [], user: { id: u.id, email: u.email } };
+    if (debug === '1') {
+      payload.filters = { user_id: u.id };
+      payload.count = (data || []).length;
+    }
+    return NextResponse.json(payload, { status: 200 });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Error interno' }, { status: 500 });
   }

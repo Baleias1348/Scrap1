@@ -18,6 +18,8 @@ export async function POST(req: Request) {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
 
+    console.log(`[Signup] Attempting signup for: ${email}`);
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -25,11 +27,40 @@ export async function POST(req: Request) {
     });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      console.error(`[Signup] Error for ${email}:`, error);
+      
+      // Manejar errores específicos
+      if (error.message.includes('User already registered')) {
+        return NextResponse.json({ 
+          error: 'Este email ya está registrado. Intenta iniciar sesión o usa la opción "¿Olvidaste tu contraseña?"',
+          code: 'user_already_exists'
+        }, { status: 400 });
+      }
+      
+      if (error.message.includes('Password')) {
+        return NextResponse.json({ 
+          error: 'La contraseña debe tener al menos 6 caracteres',
+          code: 'weak_password'
+        }, { status: 400 });
+      }
+      
+      if (error.message.includes('email')) {
+        return NextResponse.json({ 
+          error: 'El formato del email no es válido',
+          code: 'invalid_email'
+        }, { status: 400 });
+      }
+      
+      return NextResponse.json({ 
+        error: error.message,
+        code: error.code || 'signup_error'
+      }, { status: 400 });
     }
 
+    console.log(`[Signup] Success for: ${email}`);
     return NextResponse.json({ data }, { status: 200 });
   } catch (e: any) {
+    console.error('[Signup] Exception:', e);
     return NextResponse.json({ error: e?.message || 'Error interno' }, { status: 500 });
   }
 }

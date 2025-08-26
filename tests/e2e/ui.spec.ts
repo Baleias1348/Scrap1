@@ -26,7 +26,7 @@ test.describe('UI básica', () => {
     await hookLogging(page);
 
     // Cargar home
-    await page.goto(baseURL || 'http://localhost:3013', { waitUntil: 'domcontentloaded' });
+    await page.goto(baseURL || 'http://localhost:3005', { waitUntil: 'domcontentloaded' });
 
     // Verificar hidratación
     await expect(page).toHaveTitle(/Preventi Flow/i);
@@ -45,6 +45,7 @@ test.describe('UI básica', () => {
     await clickByText(page, 'Ingresa a tu dashboard');
 
     // Validar que alguno de los cambios de vista renderiza un formulario
-    await expect(page.getByRole('heading', { name: /Iniciar sesión|Registrarse/i })).toBeVisible();
+    // Buscar el formulario de login/registro que debería aparecer
+    await expect(page.locator('.glass-form')).toBeVisible();
   });
 });

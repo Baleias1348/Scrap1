@@ -332,7 +332,8 @@ const [messages, setMessages] = useState<Message[]>([
   const indicatorIndex = hovered !== null ? hovered : activeIdx;
 
   // Bloqueo estricto: si no hay organización, mostrar solo el modal y bloquear el resto del dashboard
-  if (requiresOrgSetup) {
+  // Fallback adicional: si hay usuario autenticado pero org aún es null, forzar modal
+  if (requiresOrgSetup || (user && !org)) {
     return (
       <div className="flex h-screen text-white/80 overflow-hidden">
         <div className="fixed inset-0 z-[100] flex items-center justify-center">
@@ -543,7 +544,12 @@ const [messages, setMessages] = useState<Message[]>([
                 <span className="truncate" style={{ maxWidth: '14rem' }}>Trabajando en: <span className="font-semibold text-[#ff8a3b]">{(org as any)?.nombre || (org as any)?.razon_social || (org as any)?.nombre_organizacion || '(Sin nombre)'}</span></span>
               </div>
             ) : (
-              <p className="text-xs text-white/60 mt-1">Cargando organización…</p>
+              <div className="text-xs text-white/60 mt-1">
+                <p>Cargando organización…</p>
+                {user?.email && (
+                  <p className="mt-1 opacity-80">Sesión: <span className="text-white/80">{user.email}</span></p>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -551,14 +557,14 @@ const [messages, setMessages] = useState<Message[]>([
         <nav className="flex flex-col gap-2 relative">
           {/* Indicador naranja translúcido animado */}
           <div
-            className="absolute left-0 w-full h-11 pointer-events-none transition-all duration-300"
+            className="absolute left-0 w-full h-11 pointer-events-none transition-all duration-700 ease-out"
             style={{
               top: `${indicatorIndex >= 0 ? indicatorIndex * STEP : 0}px`,
               opacity: hovered !== null || activeIdx !== -1 ? 1 : 0,
               zIndex: 0,
             }}
           >
-            <div className="mx-0.5 h-10 rounded-lg bg-[#ff6a00]/20 border border-[#ff6a00]/50 transition-all duration-300" />
+            <div className="mx-0.5 h-10 rounded-lg bg-[#ff6a00]/20 border border-[#ff6a00]/50 transition-all duration-700 ease-out" />
           </div>
           {itemsToRender.map((item: any, idx: number) => (
             item.isAIButton ? (
